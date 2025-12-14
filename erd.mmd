@@ -1,0 +1,87 @@
+erDiagram
+    USERS ||--|| USER_STATS : has
+    USERS ||--|| AVATARS : has
+    USERS ||--o{ ATTENDANCE : logs
+    USERS ||--o{ PERSONAL_RECORDS : sets
+    USERS ||--o{ USER_GEAR : owns
+    USERS ||--o{ GROUP_MEMBERS : joins
+    USERS ||--o{ GROUPS : creates
+
+    EXERCISES ||--o{ PERSONAL_RECORDS : defines
+
+    GEAR_ITEMS ||--o{ USER_GEAR : unlocks
+
+    GROUPS ||--o{ GROUP_MEMBERS : contains
+    GROUPS ||--o{ GROUP_LEADERBOARDS : ranks
+
+    USER_GEAR ||--|| AVATARS : equips
+
+    USERS {
+        uuid id PK
+        string username
+        string email
+    }
+    USER_STATS {
+        uuid id PK
+        uuid user_id FK
+        int level
+        int total_points
+        int current_streak
+    }
+    ATTENDANCE {
+        uuid id PK
+        uuid user_id FK
+        date workout_date
+        int points_earned
+    }
+    EXERCISES {
+        uuid id PK
+        string name
+        string category
+    }
+    PERSONAL_RECORDS {
+        uuid id PK
+        uuid user_id FK
+        uuid exercise_id FK
+        decimal weight
+        int reps
+        date pr_date
+        bool is_current_pr
+    }
+    AVATARS {
+        uuid id PK
+        uuid user_id FK
+        string avatar_name
+    }
+    GEAR_ITEMS {
+        uuid id PK
+        string name
+        string type
+        int unlock_level
+    }
+    USER_GEAR {
+        uuid id PK
+        uuid user_id FK
+        uuid gear_item_id FK
+        bool is_equipped
+    }
+    GROUPS {
+        uuid id PK
+        string name
+        uuid created_by_user_id FK
+        bool is_public
+    }
+    GROUP_MEMBERS {
+        uuid id PK
+        uuid group_id FK
+        uuid user_id FK
+        string role
+    }
+    GROUP_LEADERBOARDS {
+        uuid id PK
+        uuid group_id FK
+        uuid user_id FK
+        int rank
+        int total_points
+    }
+
