@@ -501,10 +501,10 @@ async function completeChallenge(
     console.log('Loser ID:', loserId);
 
     // Transfer XP: winner gains, loser loses
-    // Get current stats for both users (we need level_xp, level, total_points, and current_month_xp)
+    // Get current stats for both users (we need level_xp, level, total_points, current_month_xp, and challenges_won)
     const { data: winnerStats } = await supabase
       .from('user_stats')
-      .select('level_xp, level, total_points, current_month_xp')
+      .select('level_xp, level, total_points, current_month_xp, challenges_won')
       .eq('user_id', winnerId)
       .single();
 
@@ -558,6 +558,7 @@ async function completeChallenge(
         level: winnerNewLevel,
         total_points: winnerNewTotalPoints,
         current_month_xp: winnerNewMonthXP, // Update monthly XP
+        challenges_won: (winnerStats.challenges_won || 0) + 1, // Increment challenges won
       })
       .eq('user_id', winnerId);
     

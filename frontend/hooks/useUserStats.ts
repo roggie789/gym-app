@@ -16,6 +16,7 @@ export interface UserStats {
   level_xp: number;
   current_month_xp: number;
   current_month?: string;
+  challenges_won?: number;
 }
 
 export function useUserStats() {

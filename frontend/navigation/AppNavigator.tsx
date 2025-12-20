@@ -21,6 +21,8 @@ import GroupsScreen from '../screens/main/GroupsScreen';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
 import LeaderboardDetailScreen from '../screens/main/LeaderboardDetailScreen';
 import LiftOffDetailScreen from '../screens/main/LiftOffDetailScreen';
+import ChallengeHistoryScreen from '../screens/main/ChallengeHistoryScreen';
+import ViewProfileScreen from '../screens/main/ViewProfileScreen';
 
 // Services
 import { Exercise } from '../services/exerciseService';
@@ -40,7 +42,9 @@ type Screen =
   | 'groups'
   | 'leaderboard'
   | 'leaderboard-detail'
-  | 'lift-off-detail';
+  | 'lift-off-detail'
+  | 'challenge-history'
+  | 'view-profile';
 
 export default function AppNavigator() {
   const { session, loading } = useAuth();
@@ -52,6 +56,9 @@ export default function AppNavigator() {
   const [selectedLeaderboardId, setSelectedLeaderboardId] = useState<string | 'global'>('global');
   const [selectedLeaderboardData, setSelectedLeaderboardData] = useState<any>(null);
   const [selectedLiftOffId, setSelectedLiftOffId] = useState<string | null>(null);
+  const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(null);
+  const [viewingProfileUsername, setViewingProfileUsername] = useState<string>('');
+  const [previousScreen, setPreviousScreen] = useState<Screen>('home');
 
   // Calculate streak multiplier
   const getStreakMultiplier = async (userId: string): Promise<number> => {
@@ -213,9 +220,32 @@ export default function AppNavigator() {
       case 'monthly-xp':
         return <MonthlyXPHistoryScreen />;
       case 'profile':
-        return <ProfileScreen />;
+        return (
+          <ProfileScreen
+            onViewChallengeHistory={() => setCurrentScreen('challenge-history')}
+          />
+        );
+      case 'challenge-history':
+        return (
+          <ChallengeHistoryScreen
+            onBack={() => setCurrentScreen('profile')}
+            onViewChallenge={(challengeId) => {
+              setSelectedLiftOffId(challengeId);
+              setCurrentScreen('lift-off-detail');
+            }}
+          />
+        );
       case 'friends':
-        return <FriendsScreen />;
+        return (
+          <FriendsScreen
+            onViewProfile={(userId, username) => {
+              setPreviousScreen('friends');
+              setViewingProfileUserId(userId);
+              setViewingProfileUsername(username);
+              setCurrentScreen('view-profile');
+            }}
+          />
+        );
       case 'groups':
         return <GroupsScreen />;
       case 'leaderboard':
@@ -234,6 +264,22 @@ export default function AppNavigator() {
             groupId={selectedLeaderboardId}
             groupData={selectedLeaderboardData}
             onBack={() => setCurrentScreen('leaderboard')}
+            onViewProfile={(userId, username) => {
+              setPreviousScreen('leaderboard-detail');
+              setViewingProfileUserId(userId);
+              setViewingProfileUsername(username);
+              setCurrentScreen('view-profile');
+            }}
+          />
+        );
+      case 'view-profile':
+        return (
+          <ViewProfileScreen
+            userId={viewingProfileUserId || ''}
+            username={viewingProfileUsername}
+            onBack={() => {
+              setCurrentScreen(previousScreen);
+            }}
           />
         );
       case 'lift-off-detail':
@@ -292,7 +338,7 @@ export default function AppNavigator() {
   }
 
   // Don't show nav on workout/selection screens or detail screens
-  const showNav = !['session-selection', 'exercise-selection', 'workout', 'leaderboard-detail', 'lift-off-detail'].includes(
+  const showNav = !['session-selection', 'exercise-selection', 'workout', 'leaderboard-detail', 'lift-off-detail', 'challenge-history', 'view-profile'].includes(
     currentScreen
   );
 

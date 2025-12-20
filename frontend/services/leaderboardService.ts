@@ -8,6 +8,7 @@ export interface LeaderboardEntry {
   current_streak: number;
   total_prs: number;
   total_workouts: number;
+  challenges_won?: number;
   rank: number;
 }
 
@@ -34,7 +35,8 @@ export async function getGroupLeaderboard(groupId: string) {
       level,
       current_streak,
       total_prs,
-      total_workouts
+      total_workouts,
+      challenges_won
     `)
     .in('user_id', userIds)
     .order('level_xp', { ascending: false });
@@ -67,6 +69,7 @@ export async function getGroupLeaderboard(groupId: string) {
       current_streak: stat.current_streak || 0,
       total_prs: stat.total_prs || 0,
       total_workouts: stat.total_workouts || 0,
+      challenges_won: stat.challenges_won || 0,
       rank: index + 1,
     };
   });
@@ -84,7 +87,8 @@ export async function getGlobalLeaderboard(limit: number = 100) {
       level,
       current_streak,
       total_prs,
-      total_workouts
+      total_workouts,
+      challenges_won
     `)
     .order('level_xp', { ascending: false })
     .limit(limit);
@@ -116,6 +120,7 @@ export async function getGlobalLeaderboard(limit: number = 100) {
       current_streak: stat.current_streak || 0,
       total_prs: stat.total_prs || 0,
       total_workouts: stat.total_workouts || 0,
+      challenges_won: stat.challenges_won || 0,
       rank: index + 1,
     };
   });

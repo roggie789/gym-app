@@ -29,9 +29,10 @@ interface LeaderboardDetailScreenProps {
   groupId: string | 'global';
   groupData?: Group;
   onBack: () => void;
+  onViewProfile?: (userId: string, username: string) => void;
 }
 
-export default function LeaderboardDetailScreen({ groupId, groupData, onBack }: LeaderboardDetailScreenProps) {
+export default function LeaderboardDetailScreen({ groupId, groupData, onBack, onViewProfile }: LeaderboardDetailScreenProps) {
   const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -283,17 +284,28 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack }: 
                     <View style={styles.headerRight}>
                       <Text style={styles.points}>{entry.total_points.toLocaleString()} XP</Text>
                       {!isCurrentUser && (
-                        <TouchableOpacity
-                          style={styles.challengeButton}
-                          onPress={() => {
-                            setSelectedUserId(entry.user_id);
-                            setSelectedUsername(entry.username);
-                            setShowChallengeModal(true);
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.challengeButtonText}>⚔️</Text>
-                        </TouchableOpacity>
+                        <View style={styles.userActions}>
+                          {onViewProfile && (
+                            <TouchableOpacity
+                              style={styles.viewProfileButton}
+                              onPress={() => onViewProfile(entry.user_id, entry.username)}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={styles.viewProfileButtonText}>👤</Text>
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity
+                            style={styles.challengeButton}
+                            onPress={() => {
+                              setSelectedUserId(entry.user_id);
+                              setSelectedUsername(entry.username);
+                              setShowChallengeModal(true);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.challengeButtonText}>⚔️</Text>
+                          </TouchableOpacity>
+                        </View>
                       )}
                     </View>
                   </View>
@@ -313,6 +325,10 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack }: 
                     <View style={styles.statItem}>
                       <Text style={styles.statLabel}>WORKOUTS</Text>
                       <Text style={styles.statValue}>{entry.total_workouts}</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>WINS</Text>
+                      <Text style={styles.statValue}>{entry.challenges_won || 0}</Text>
                     </View>
                   </View>
                 </View>
@@ -625,6 +641,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  userActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  viewProfileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.accent1,
+  },
+  viewProfileButtonText: {
+    fontSize: 18,
   },
   challengeButton: {
     width: 40,

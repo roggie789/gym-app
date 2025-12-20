@@ -6,7 +6,11 @@ import { supabase } from '../../config/supabase';
 import { Colors } from '../../constants/colors';
 import { getUserProfile, updateUsername } from '../../services/userProfileService';
 
-export default function ProfileScreen() {
+interface ProfileScreenProps {
+  onViewChallengeHistory?: () => void;
+}
+
+export default function ProfileScreen({ onViewChallengeHistory }: ProfileScreenProps) {
   const { user, signOut } = useAuth();
   const { stats, refreshStats } = useUserStats();
   const [bodyweight, setBodyweight] = useState(stats?.bodyweight?.toString() || '');
@@ -151,6 +155,41 @@ export default function ProfileScreen() {
             </View>
           )}
         </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>STATS</Text>
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>LEVEL</Text>
+            <Text style={styles.statValue}>{stats?.level || 1}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>TOTAL XP</Text>
+            <Text style={styles.statValue}>{(stats?.level_xp || 0).toLocaleString()}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>HIGHEST STREAK</Text>
+            <Text style={styles.statValue}>{stats?.longest_streak || 0}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>TOTAL PRS</Text>
+            <Text style={styles.statValue}>{stats?.total_prs || 0}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>CHALLENGES WON</Text>
+            <Text style={styles.statValue}>{stats?.challenges_won || 0}</Text>
+          </View>
+        </View>
+        {onViewChallengeHistory && (
+          <TouchableOpacity
+            style={styles.challengeHistoryButton}
+            onPress={onViewChallengeHistory}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.challengeHistoryButtonText}>VIEW CHALLENGE HISTORY</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -366,6 +405,51 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: Colors.backgroundSecondary,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  statValue: {
+    fontSize: 24,
+    color: Colors.primary,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  challengeHistoryButton: {
+    marginTop: 16,
+    backgroundColor: Colors.secondary,
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.accent1,
+  },
+  challengeHistoryButtonText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: Colors.textPrimary,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
 });

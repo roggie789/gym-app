@@ -22,7 +22,11 @@ import {
 } from '../../services/friendsService';
 import CreateChallengeModal from '../../components/CreateChallengeModal';
 
-export default function FriendsScreen() {
+interface FriendsScreenProps {
+  onViewProfile?: (userId: string, username: string) => void;
+}
+
+export default function FriendsScreen({ onViewProfile }: FriendsScreenProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
@@ -164,13 +168,24 @@ export default function FriendsScreen() {
                   <Text style={styles.resultUsername}>{result.username.toUpperCase()}</Text>
                   <Text style={styles.resultEmail}>{result.email}</Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => handleSendRequest(result.id)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.addButtonText}>+ ADD</Text>
-                </TouchableOpacity>
+                <View style={styles.resultActions}>
+                  {onViewProfile && (
+                    <TouchableOpacity
+                      style={styles.viewProfileButton}
+                      onPress={() => onViewProfile(result.id, result.username)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.viewProfileButtonText}>👤</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => handleSendRequest(result.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.addButtonText}>+ ADD</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
 
@@ -205,6 +220,15 @@ export default function FriendsScreen() {
                       <Text style={styles.friendEmail}>{friend.friend_email || ''}</Text>
                     </View>
                     <View style={styles.friendActions}>
+                      {onViewProfile && (
+                        <TouchableOpacity
+                          style={styles.viewProfileButton}
+                          onPress={() => onViewProfile(friendId, friend.friend_username || '')}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.viewProfileButtonText}>👤</Text>
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity
                         style={styles.challengeButton}
                         onPress={() => {
@@ -404,6 +428,24 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontWeight: '600',
   },
+  resultActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  viewProfileButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.accent1,
+  },
+  viewProfileButtonText: {
+    fontSize: 18,
+  },
   addButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -449,6 +491,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  viewProfileButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.accent1,
+  },
+  viewProfileButtonText: {
+    fontSize: 18,
+  },
   challengeButton: {
     width: 36,
     height: 36,
@@ -461,21 +516,6 @@ const styles = StyleSheet.create({
   },
   challengeButtonText: {
     fontSize: 18,
-  },
-  friendActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  challengeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.accent1,
   },
   challengeButtonText: {
     fontSize: 18,
