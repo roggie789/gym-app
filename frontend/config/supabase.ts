@@ -20,12 +20,12 @@ const AsyncStorageAdapter = {
   },
 };
 
-// Create Supabase client without custom storage to avoid type casting issues
-// Session will not persist between app restarts, but this avoids the String/Double error
+// Create Supabase client with AsyncStorage adapter for session persistence
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    autoRefreshToken: false,
-    persistSession: false, // Disable persistence to avoid storage issues
+    storage: AsyncStorageAdapter,
+    autoRefreshToken: true,
+    persistSession: true, // Enable persistence for "remember me" functionality
     detectSessionInUrl: false,
   },
 });

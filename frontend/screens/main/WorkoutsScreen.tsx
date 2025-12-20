@@ -241,7 +241,7 @@ export default function WorkoutsScreen() {
               ))}
             </ScrollView>
 
-            <Text style={styles.label}>Weight ({selectedExercise?.unit || 'lbs'})</Text>
+            <Text style={styles.label}>Weight ({selectedExercise?.unit || 'kg'})</Text>
             <TextInput
               style={styles.input}
               placeholder="Enter weight"

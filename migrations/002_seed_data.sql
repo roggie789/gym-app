@@ -7,46 +7,46 @@
 
 INSERT INTO exercises (name, category, muscle_groups, description, unit) VALUES
 -- Chest Exercises
-('Bench Press', 'Chest', '["chest", "triceps", "shoulders"]', 'Classic chest exercise performed on a flat bench', 'lbs'),
-('Incline Bench Press', 'Chest', '["chest", "triceps", "shoulders"]', 'Bench press performed on an inclined bench', 'lbs'),
-('Decline Bench Press', 'Chest', '["chest", "triceps"]', 'Bench press performed on a declined bench', 'lbs'),
-('Dumbbell Flyes', 'Chest', '["chest"]', 'Isolation exercise for chest muscles', 'lbs'),
+('Bench Press', 'Chest', '["chest", "triceps", "shoulders"]', 'Classic chest exercise performed on a flat bench', 'kg'),
+('Incline Bench Press', 'Chest', '["chest", "triceps", "shoulders"]', 'Bench press performed on an inclined bench', 'kg'),
+('Decline Bench Press', 'Chest', '["chest", "triceps"]', 'Bench press performed on a declined bench', 'kg'),
+('Dumbbell Flyes', 'Chest', '["chest"]', 'Isolation exercise for chest muscles', 'kg'),
 ('Push-ups', 'Chest', '["chest", "triceps", "shoulders"]', 'Bodyweight chest exercise', 'bodyweight'),
 
 -- Back Exercises
-('Deadlift', 'Back', '["back", "glutes", "hamstrings"]', 'Full-body compound movement', 'lbs'),
-('Barbell Row', 'Back', '["back", "biceps"]', 'Horizontal pulling movement for back', 'lbs'),
+('Deadlift', 'Back', '["back", "glutes", "hamstrings"]', 'Full-body compound movement', 'kg'),
+('Barbell Row', 'Back', '["back", "biceps"]', 'Horizontal pulling movement for back', 'kg'),
 ('Pull-ups', 'Back', '["back", "biceps"]', 'Bodyweight vertical pulling exercise', 'bodyweight'),
-('Lat Pulldown', 'Back', '["back", "biceps"]', 'Machine-based vertical pulling exercise', 'lbs'),
-('T-Bar Row', 'Back', '["back", "biceps"]', 'Unilateral back exercise', 'lbs'),
+('Lat Pulldown', 'Back', '["back", "biceps"]', 'Machine-based vertical pulling exercise', 'kg'),
+('T-Bar Row', 'Back', '["back", "biceps"]', 'Unilateral back exercise', 'kg'),
 
 -- Legs Exercises
-('Squat', 'Legs', '["quadriceps", "glutes", "hamstrings"]', 'King of leg exercises', 'lbs'),
-('Leg Press', 'Legs', '["quadriceps", "glutes"]', 'Machine-based leg exercise', 'lbs'),
-('Romanian Deadlift', 'Legs', '["hamstrings", "glutes", "back"]', 'Hip-hinge movement for posterior chain', 'lbs'),
-('Leg Curl', 'Legs', '["hamstrings"]', 'Isolation exercise for hamstrings', 'lbs'),
-('Leg Extension', 'Legs', '["quadriceps"]', 'Isolation exercise for quadriceps', 'lbs'),
-('Calf Raise', 'Legs', '["calves"]', 'Exercise for calf muscles', 'lbs'),
+('Squat', 'Legs', '["quadriceps", "glutes", "hamstrings"]', 'King of leg exercises', 'kg'),
+('Leg Press', 'Legs', '["quadriceps", "glutes"]', 'Machine-based leg exercise', 'kg'),
+('Romanian Deadlift', 'Legs', '["hamstrings", "glutes", "back"]', 'Hip-hinge movement for posterior chain', 'kg'),
+('Leg Curl', 'Legs', '["hamstrings"]', 'Isolation exercise for hamstrings', 'kg'),
+('Leg Extension', 'Legs', '["quadriceps"]', 'Isolation exercise for quadriceps', 'kg'),
+('Calf Raise', 'Legs', '["calves"]', 'Exercise for calf muscles', 'kg'),
 
 -- Shoulders Exercises
-('Overhead Press', 'Shoulders', '["shoulders", "triceps"]', 'Vertical pressing movement', 'lbs'),
-('Lateral Raise', 'Shoulders', '["shoulders"]', 'Isolation exercise for side delts', 'lbs'),
-('Front Raise', 'Shoulders', '["shoulders"]', 'Isolation exercise for front delts', 'lbs'),
-('Rear Delt Fly', 'Shoulders', '["shoulders"]', 'Isolation exercise for rear delts', 'lbs'),
-('Arnold Press', 'Shoulders', '["shoulders", "triceps"]', 'Rotational overhead press', 'lbs'),
+('Overhead Press', 'Shoulders', '["shoulders", "triceps"]', 'Vertical pressing movement', 'kg'),
+('Lateral Raise', 'Shoulders', '["shoulders"]', 'Isolation exercise for side delts', 'kg'),
+('Front Raise', 'Shoulders', '["shoulders"]', 'Isolation exercise for front delts', 'kg'),
+('Rear Delt Fly', 'Shoulders', '["shoulders"]', 'Isolation exercise for rear delts', 'kg'),
+('Arnold Press', 'Shoulders', '["shoulders", "triceps"]', 'Rotational overhead press', 'kg'),
 
 -- Arms Exercises
-('Barbell Curl', 'Arms', '["biceps"]', 'Classic bicep exercise', 'lbs'),
+('Barbell Curl', 'Arms', '["biceps"]', 'Classic bicep exercise', 'kg'),
 ('Tricep Dip', 'Arms', '["triceps"]', 'Bodyweight tricep exercise', 'bodyweight'),
-('Hammer Curl', 'Arms', '["biceps", "forearms"]', 'Bicep exercise with neutral grip', 'lbs'),
-('Tricep Extension', 'Arms', '["triceps"]', 'Isolation exercise for triceps', 'lbs'),
-('Preacher Curl', 'Arms', '["biceps"]', 'Isolated bicep exercise', 'lbs'),
+('Hammer Curl', 'Arms', '["biceps", "forearms"]', 'Bicep exercise with neutral grip', 'kg'),
+('Tricep Extension', 'Arms', '["triceps"]', 'Isolation exercise for triceps', 'kg'),
+('Preacher Curl', 'Arms', '["biceps"]', 'Isolated bicep exercise', 'kg'),
 
 -- Core Exercises
 ('Plank', 'Core', '["core"]', 'Isometric core exercise', 'time'),
 ('Russian Twist', 'Core', '["core"]', 'Rotational core exercise', 'reps'),
 ('Leg Raise', 'Core', '["core", "hip flexors"]', 'Lower ab exercise', 'reps'),
-('Cable Crunch', 'Core', '["core"]', 'Weighted core exercise', 'lbs'),
+('Cable Crunch', 'Core', '["core"]', 'Weighted core exercise', 'kg'),
 ('Ab Wheel Rollout', 'Core', '["core"]', 'Advanced core exercise', 'reps');
 
 -- ============================================

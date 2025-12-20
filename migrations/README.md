@@ -1,80 +1,59 @@
 # Database Migrations
 
-This directory contains SQL migration files for setting up the Gym App database on Supabase.
+This directory contains SQL migration files for setting up and updating the database schema.
 
-## Migration Files
+## Running Migrations
 
-1. **001_initial_schema.sql** - Creates all tables, indexes, triggers, and functions
-2. **002_seed_data.sql** - Seeds initial data (exercises and gear items)
+### Using Supabase Dashboard
 
-## How to Run Migrations on Supabase
+1. Go to your Supabase project dashboard
+2. Navigate to the SQL Editor
+3. Run each migration file in order:
+   - `001_initial_schema.sql` - Creates all base tables
+   - `002_seed_data.sql` - Inserts initial exercise and gear data
+   - `003_add_xp_system.sql` - Adds XP system, monthly tracking, and session templates
 
-### Option 1: Using Supabase Dashboard (Recommended)
+### Migration Order
 
-1. Log into your Supabase dashboard
-2. Navigate to **SQL Editor**
-3. Open `001_initial_schema.sql` and copy its contents
-4. Paste into the SQL Editor and click **Run**
-5. Repeat for `002_seed_data.sql`
+**IMPORTANT**: Run migrations in this exact order:
 
-### Option 2: Using Supabase CLI
+1. `001_initial_schema.sql` - Must be run first
+2. `002_seed_data.sql` - Run after initial schema
+3. `003_add_xp_system.sql` - Run after initial schema (adds new columns and tables)
 
-If you have Supabase CLI installed:
+## Migration Details
 
-```bash
-# Link to your project
-supabase link --project-ref your-project-ref
-
-# Run migrations
-supabase db push
-```
-
-### Option 3: Using psql
-
-If you have PostgreSQL client installed:
-
-```bash
-psql "postgresql://[YOUR_CONNECTION_STRING]" -f migrations/001_initial_schema.sql
-psql "postgresql://[YOUR_CONNECTION_STRING]" -f migrations/002_seed_data.sql
-```
-
-## What Gets Created
-
-### Tables
+### 001_initial_schema.sql
+Creates the core database structure:
 - `users` - User accounts
-- `user_stats` - User statistics and levels
-- `attendance` - Gym visit tracking
-- `exercises` - Master list of exercises
+- `user_stats` - User statistics and progress
+- `attendance` - Workout attendance records
+- `exercises` - Exercise catalog
 - `personal_records` - PR tracking
-- `avatars` - Avatar customization
-- `gear_items` - Unlockable gear catalog
-- `user_gear` - User's unlocked/equipped gear
-- `groups` - User-created groups
+- `avatars` - Avatar system
+- `gear_items` - Unlockable gear
+- `user_gear` - User's unlocked gear
+- `groups` - User groups
 - `group_members` - Group membership
-- `group_leaderboards` - Cached leaderboard data
+- `group_leaderboards` - Group leaderboards
 
-### Features
-- Automatic `updated_at` timestamps
-- Auto-creation of stats and avatar when user is created
-- Single current PR enforcement per user/exercise
-- Comprehensive indexes for performance
-- Foreign key constraints with cascade deletes
+### 002_seed_data.sql
+Populates initial data:
+- 30+ exercises across multiple categories
+- 25+ gear items with unlock requirements
 
-## Verification
+### 003_add_xp_system.sql
+Adds XP system features:
+- `bodyweight` column to `user_stats`
+- `level_xp`, `current_month_xp`, `current_month` columns
+- `monthly_xp` table for historical monthly XP
+- `session_templates` table for workout templates
+- `workout_sessions` table for detailed session logs
+- Functions for XP calculation and monthly reset
+- Triggers for automatic monthly XP reset
 
-After running migrations, verify the setup:
+## Notes
 
-```sql
--- Check tables were created
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public' 
-ORDER BY table_name;
-
--- Check exercises were seeded
-SELECT COUNT(*) FROM exercises;
-
--- Check gear items were seeded
-SELECT COUNT(*) FROM gear_items;
-```
-
+- All migrations are idempotent (safe to run multiple times)
+- Uses `IF NOT EXISTS` and `IF EXISTS` checks where appropriate
+- The monthly XP reset trigger automatically saves previous month's XP and resets current month XP at the start of each new month

@@ -51,7 +51,7 @@ export async function logWorkout(
     if (stats) {
       const lastWorkout = stats.last_workout_date
         ? new Date(stats.last_workout_date)
-        : null;
+        : null; 
       const today = new Date(workoutDate);
       today.setHours(0, 0, 0, 0);
       

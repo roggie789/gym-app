@@ -52,7 +52,7 @@ CREATE TABLE exercises (
     category VARCHAR(50) NOT NULL,
     muscle_groups JSONB,
     description TEXT,
-    unit VARCHAR(10) NOT NULL DEFAULT 'lbs',
+    unit VARCHAR(10) NOT NULL DEFAULT 'kg',
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );

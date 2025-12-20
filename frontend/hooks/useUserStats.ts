@@ -12,6 +12,10 @@ export interface UserStats {
   total_workouts: number;
   total_prs: number;
   last_workout_date: string | null;
+  bodyweight?: number;
+  level_xp: number;
+  current_month_xp: number;
+  current_month?: string;
 }
 
 export function useUserStats() {
