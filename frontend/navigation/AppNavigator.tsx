@@ -20,6 +20,7 @@ import FriendsScreen from '../screens/main/FriendsScreen';
 import GroupsScreen from '../screens/main/GroupsScreen';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
 import LeaderboardDetailScreen from '../screens/main/LeaderboardDetailScreen';
+import LiftOffDetailScreen from '../screens/main/LiftOffDetailScreen';
 
 // Services
 import { Exercise } from '../services/exerciseService';
@@ -38,7 +39,8 @@ type Screen =
   | 'friends'
   | 'groups'
   | 'leaderboard'
-  | 'leaderboard-detail';
+  | 'leaderboard-detail'
+  | 'lift-off-detail';
 
 export default function AppNavigator() {
   const { session, loading } = useAuth();
@@ -49,6 +51,7 @@ export default function AppNavigator() {
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [selectedLeaderboardId, setSelectedLeaderboardId] = useState<string | 'global'>('global');
   const [selectedLeaderboardData, setSelectedLeaderboardData] = useState<any>(null);
+  const [selectedLiftOffId, setSelectedLiftOffId] = useState<string | null>(null);
 
   // Calculate streak multiplier
   const getStreakMultiplier = async (userId: string): Promise<number> => {
@@ -233,8 +236,43 @@ export default function AppNavigator() {
             onBack={() => setCurrentScreen('leaderboard')}
           />
         );
+      case 'lift-off-detail':
+        return (
+          <LiftOffDetailScreen
+            challengeId={selectedLiftOffId || ''}
+            onBack={() => {
+              setCurrentScreen('home');
+              // Trigger refresh by re-rendering home screen
+              setTimeout(() => {
+                if ((HomeScreen as any).refreshChallenges) {
+                  (HomeScreen as any).refreshChallenges();
+                }
+              }, 100);
+            }}
+            onChallengeUpdate={() => {
+              // Go back to home and refresh challenges
+              setCurrentScreen('home');
+              setTimeout(() => {
+                if ((HomeScreen as any).refreshChallenges) {
+                  (HomeScreen as any).refreshChallenges();
+                }
+              }, 100);
+            }}
+          />
+        );
       default:
-        return <HomeScreen onStartSession={handleStartSession} />;
+        return (
+          <HomeScreen
+            onStartSession={handleStartSession}
+            onViewLiftOff={(challengeId) => {
+              setSelectedLiftOffId(challengeId);
+              setCurrentScreen('lift-off-detail');
+            }}
+            onChallengeUpdate={() => {
+              // Refresh will happen automatically via useEffect
+            }}
+          />
+        );
     }
   };
 
@@ -253,8 +291,8 @@ export default function AppNavigator() {
     return <SimpleLoginScreen onSwitchToSignup={() => setShowSignup(true)} />;
   }
 
-  // Don't show nav on workout/selection screens or leaderboard detail
-  const showNav = !['session-selection', 'exercise-selection', 'workout', 'leaderboard-detail'].includes(
+  // Don't show nav on workout/selection screens or detail screens
+  const showNav = !['session-selection', 'exercise-selection', 'workout', 'leaderboard-detail', 'lift-off-detail'].includes(
     currentScreen
   );
 

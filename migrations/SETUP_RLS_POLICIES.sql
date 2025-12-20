@@ -192,3 +192,44 @@ CREATE POLICY "Group owners can update join requests" ON group_join_requests
     )
   );
 
+-- ============================================
+-- LIFT OFF CHALLENGES RLS POLICIES
+-- ============================================
+
+-- Enable RLS on lift_off_challenges
+ALTER TABLE lift_off_challenges ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own challenges" ON lift_off_challenges;
+DROP POLICY IF EXISTS "Users can create challenges" ON lift_off_challenges;
+DROP POLICY IF EXISTS "Users can update challenges they're involved in" ON lift_off_challenges;
+
+-- Users can view challenges where they are the challenger or challenged
+CREATE POLICY "Users can view their own challenges" ON lift_off_challenges
+  FOR SELECT
+  USING (
+    challenger_id = auth.uid() OR 
+    challenged_id = auth.uid()
+  );
+
+-- Users can create challenges (as challenger)
+-- Note: WITH CHECK validates the new row being inserted
+-- Simplified to just check that the challenger is the authenticated user
+CREATE POLICY "Users can create challenges" ON lift_off_challenges
+  FOR INSERT
+  WITH CHECK (challenger_id = auth.uid());
+
+-- Users can update challenges they're involved in
+-- Challenged user can accept/decline
+-- Both users can complete their lift
+CREATE POLICY "Users can update challenges they're involved in" ON lift_off_challenges
+  FOR UPDATE
+  USING (
+    challenger_id = auth.uid() OR 
+    challenged_id = auth.uid()
+  )
+  WITH CHECK (
+    challenger_id = auth.uid() OR 
+    challenged_id = auth.uid()
+  );
+

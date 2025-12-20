@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,18 +11,49 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useUserStats } from '../../hooks/useUserStats';
 import { getXPForLevel } from '../../services/xpService';
 import { Colors } from '../../constants/colors';
+import { getActiveChallenges, getPendingChallenges, LiftOffChallenge } from '../../services/liftOffService';
 
 interface HomeScreenProps {
   onStartSession: () => void;
+  onViewLiftOff?: (challengeId: string) => void;
 }
 
-export default function HomeScreen({ onStartSession }: HomeScreenProps) {
+export default function HomeScreen({ onStartSession, onViewLiftOff, onChallengeUpdate }: HomeScreenProps) {
   const { user } = useAuth();
   const { stats, loading, refreshStats } = useUserStats();
+  const [activeChallenges, setActiveChallenges] = useState<LiftOffChallenge[]>([]);
+  const [pendingChallenges, setPendingChallenges] = useState<LiftOffChallenge[]>([]);
 
   useEffect(() => {
     refreshStats();
-  }, []);
+    if (user) {
+      loadActiveChallenges();
+      loadPendingChallenges();
+    }
+  }, [user]);
+
+  // Refresh challenges when callback is triggered
+  useEffect(() => {
+    // Store refresh function for parent to call
+    (HomeScreen as any).refreshChallenges = () => {
+      if (user) {
+        loadActiveChallenges();
+        loadPendingChallenges();
+      }
+    };
+  }, [user]);
+
+  const loadActiveChallenges = async () => {
+    if (!user) return;
+    const { data } = await getActiveChallenges(user.id);
+    setActiveChallenges(data || []);
+  };
+
+  const loadPendingChallenges = async () => {
+    if (!user) return;
+    const { data } = await getPendingChallenges(user.id);
+    setPendingChallenges(data || []);
+  };
 
   if (loading || !stats) {
     return (
@@ -38,10 +69,39 @@ export default function HomeScreen({ onStartSession }: HomeScreenProps) {
     year: 'numeric',
   });
 
+  // level_xp is now cumulative, so we need to calculate the XP for the current level
   const xpForCurrentLevel = getXPForLevel(stats.level);
   const xpForNextLevel = stats.level < 100 ? getXPForLevel(stats.level + 1) : xpForCurrentLevel;
+  
+  // Calculate cumulative XP up to current level (levels 1 through level-1)
+  let cumulativeXPForPreviousLevels = 0;
+  for (let level = 1; level < stats.level; level++) {
+    cumulativeXPForPreviousLevels += getXPForLevel(level);
+  }
+  
+  // Current level XP = cumulative XP - cumulative XP for previous levels
+  // Handle case where level_xp might be in old format (non-cumulative) or new format (cumulative)
+  let currentLevelXP = stats.level_xp - cumulativeXPForPreviousLevels;
+  
+  // If the result is negative or seems wrong, the data might be in old format
+  // In old format, level_xp was just the current level XP, so if it's less than xpForCurrentLevel,
+  // it's likely old format. But if it's much larger, it's cumulative.
+  if (currentLevelXP < 0 || currentLevelXP > xpForCurrentLevel * 2) {
+    // Check if level_xp looks like it's in old format (small value for current level)
+    if (stats.level_xp < xpForCurrentLevel * 2) {
+      // Old format: level_xp is just current level XP
+      currentLevelXP = stats.level_xp;
+    } else {
+      // New format but calculation issue - recalculate
+      currentLevelXP = Math.max(0, stats.level_xp - cumulativeXPForPreviousLevels);
+    }
+  }
+  
+  // Clamp to valid range
+  currentLevelXP = Math.max(0, Math.min(currentLevelXP, xpForCurrentLevel));
+  
   const progressPercent = stats.level < 100
-    ? (stats.level_xp / xpForNextLevel) * 100
+    ? (currentLevelXP / xpForCurrentLevel) * 100
     : 100;
 
   return (
@@ -49,23 +109,119 @@ export default function HomeScreen({ onStartSession }: HomeScreenProps) {
       {/* Hero Section - Level & XP */}
       <View style={styles.heroSection}>
         <View style={styles.levelBadge}>
-          <View style={styles.levelBadgeInner}>
-            <Text style={styles.levelLabel}>LEVEL</Text>
-            <Text style={styles.levelNumber}>{stats.level}</Text>
-          </View>
-          {stats.level < 100 && (
-            <View style={styles.xpSection}>
-              <Text style={styles.xpText}>
-                {stats.level_xp.toLocaleString()} / {xpForNextLevel.toLocaleString()} XP
-              </Text>
-              <View style={styles.progressBarOuter}>
-                <View style={[styles.progressBarInner, { width: `${progressPercent}%` }]} />
-                <View style={styles.progressBarGlow} />
-              </View>
+          <View style={styles.levelBadgeRow}>
+            <View style={styles.levelSection}>
+              <Text style={styles.levelLabel}>LEVEL</Text>
+              <Text style={styles.levelNumber}>{stats.level}</Text>
             </View>
-          )}
+            {stats.level < 100 && (
+              <View style={styles.xpSection}>
+                <Text style={styles.xpText}>
+                  {currentLevelXP.toLocaleString()} / {xpForCurrentLevel.toLocaleString()} XP
+                </Text>
+                <View style={styles.progressBarOuter}>
+                  <View style={[styles.progressBarInner, { width: `${progressPercent}%` }]} />
+                  <View style={styles.progressBarGlow} />
+                </View>
+              </View>
+            )}
+          </View>
         </View>
       </View>
+
+      {/* Pending Challenges */}
+      {pendingChallenges.length > 0 && (
+        <View style={styles.liftOffsSection}>
+          <Text style={styles.sectionTitle}>PENDING CHALLENGES</Text>
+          {pendingChallenges.map((challenge) => {
+            const challenger = challenge.challenger_username || 'User';
+            return (
+              <TouchableOpacity
+                key={challenge.id}
+                style={[styles.liftOffCard, styles.pendingCard]}
+                onPress={() => onViewLiftOff?.(challenge.id)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.liftOffHeader}>
+                  <Text style={styles.liftOffTitle}>
+                    FROM {challenger.toUpperCase()}
+                  </Text>
+                  <Text style={styles.liftOffWager}>
+                    {challenge.wager_xp.toLocaleString()} XP
+                  </Text>
+                </View>
+                <Text style={styles.liftOffExercise}>
+                  {challenge.exercise?.name.toUpperCase() || 'EXERCISE'}
+                </Text>
+                <View style={styles.liftOffStatus}>
+                  <Text style={styles.pendingStatusText}>
+                    TAP TO ACCEPT OR DECLINE
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Active Challenges */}
+      {activeChallenges.length > 0 && (
+        <View style={styles.liftOffsSection}>
+          <Text style={styles.sectionTitle}>ACTIVE CHALLENGES</Text>
+          {activeChallenges.map((challenge) => {
+            const isChallenger = challenge.challenger_id === user?.id;
+            const opponent = isChallenger
+              ? challenge.challenged_username
+              : challenge.challenger_username;
+            const hasCompleted = isChallenger
+              ? !!challenge.challenger_completed_at
+              : !!challenge.challenged_completed_at;
+            const opponentCompleted = isChallenger
+              ? !!challenge.challenged_completed_at
+              : !!challenge.challenger_completed_at;
+            
+            const daysLeft = challenge.expires_at
+              ? Math.ceil(
+                  (new Date(challenge.expires_at).getTime() - new Date().getTime()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              : 0;
+
+            return (
+              <TouchableOpacity
+                key={challenge.id}
+                style={[styles.liftOffCard, styles.activeCard]}
+                onPress={() => onViewLiftOff?.(challenge.id)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.liftOffHeader}>
+                  <Text style={styles.liftOffTitle}>
+                    VS {opponent?.toUpperCase() || 'OPPONENT'}
+                  </Text>
+                  <Text style={styles.liftOffWager}>
+                    {challenge.wager_xp.toLocaleString()} XP
+                  </Text>
+                </View>
+                <Text style={styles.liftOffExercise}>
+                  {challenge.exercise?.name.toUpperCase() || 'EXERCISE'}
+                </Text>
+                <View style={styles.liftOffStatus}>
+                  <Text style={styles.activeStatusText}>
+                    {hasCompleted
+                      ? 'WAITING FOR OPPONENT'
+                      : opponentCompleted
+                      ? 'OPPONENT COMPLETED - ENTER YOUR LIFT'
+                      : 'ENTER YOUR LIFT'}
+                  </Text>
+                  <Text style={styles.daysLeftText}>
+                    {daysLeft} DAY{daysLeft !== 1 ? 'S' : ''} LEFT
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       {/* Monthly Challenge Card */}
       <View style={styles.challengeCard}>
@@ -155,9 +311,14 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 12,
   },
-  levelBadgeInner: {
+  levelBadgeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+  },
+  levelSection: {
+    alignItems: 'center',
+    marginRight: 16,
   },
   levelLabel: {
     fontSize: 11,
@@ -176,14 +337,15 @@ const styles = StyleSheet.create({
     textShadowRadius: 12,
   },
   xpSection: {
-    marginTop: 12,
+    flex: 1,
+    marginLeft: 16,
   },
   xpText: {
     fontSize: 13,
     fontWeight: '800',
     color: Colors.xpGold,
     marginBottom: 10,
-    textAlign: 'center',
+    textAlign: 'left',
     letterSpacing: 0.5,
   },
   progressBarOuter: {
@@ -387,6 +549,97 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     transform: [{ skewX: '-20deg' }],
+  },
+  liftOffsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: Colors.accent1,
+    letterSpacing: 2,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+  liftOffCard: {
+    backgroundColor: Colors.backgroundCard,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  liftOffHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  liftOffTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: Colors.textPrimary,
+    letterSpacing: 1,
+  },
+  liftOffWager: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: Colors.xpGold,
+  },
+  liftOffExercise: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  liftOffStatus: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  liftOffStatusText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.accent1,
+    letterSpacing: 1,
+  },
+  liftOffDaysLeft: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textMuted,
+  },
+  pendingCard: {
+    borderColor: Colors.accent1,
+    borderStyle: 'dashed',
+  },
+  pendingStatusText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.accent1,
+    letterSpacing: 1,
+  },
+  activeCard: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.backgroundCard,
+  },
+  activeStatusText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.primary,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  daysLeftText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    letterSpacing: 0.5,
   },
 });
 

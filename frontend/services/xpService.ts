@@ -310,13 +310,36 @@ export async function processWorkoutSession(
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
     // Update user stats
-    const newLevelXP = (stats.level_xp || 0) + sessionXP;
+    // level_xp is now cumulative (total XP from level 0)
+    const currentLevel = stats.level || 1;
+    const currentLevelXP = stats.level_xp || 0;
+    
+    // Check if level_xp is in old format (non-cumulative) or new format (cumulative)
+    // Calculate cumulative XP for previous levels
+    let cumulativeXPForPreviousLevels = 0;
+    for (let level = 1; level < currentLevel; level++) {
+      cumulativeXPForPreviousLevels += getXPForLevel(level);
+    }
+    
+    // If currentLevelXP is less than cumulativeXPForPreviousLevels, it's in old format
+    // Otherwise, it's already cumulative
+    let currentCumulativeXP: number;
+    if (currentLevelXP < cumulativeXPForPreviousLevels) {
+      // Old format: convert to cumulative
+      currentCumulativeXP = cumulativeXPForPreviousLevels + currentLevelXP;
+    } else {
+      // New format: already cumulative
+      currentCumulativeXP = currentLevelXP;
+    }
+    
+    // Add session XP to cumulative total
+    const newCumulativeXP = currentCumulativeXP + sessionXP;
     const newMonthXP = (stats.current_month_xp || 0) + sessionXP;
 
-    // Calculate new level
-    let newLevel = stats.level || 1;
-    let remainingXP = newLevelXP;
-
+    // Calculate new level from cumulative XP
+    let newLevel = 1;
+    let remainingXP = newCumulativeXP;
+    
     while (newLevel < 100) {
       const xpNeeded = getXPForLevel(newLevel);
       if (remainingXP >= xpNeeded) {
@@ -376,11 +399,12 @@ export async function processWorkoutSession(
     }
 
     // Update stats
+    // Store cumulative XP (total from level 0)
     const { error: updateError } = await supabase
       .from('user_stats')
       .update({
         level: newLevel,
-        level_xp: remainingXP,
+        level_xp: newCumulativeXP, // Store cumulative XP
         current_month_xp: newMonthXP,
         current_month: currentMonth,
         total_prs: (stats.total_prs || 0) + prsAchieved,

@@ -20,6 +20,7 @@ import {
   Friend,
   UserProfile,
 } from '../../services/friendsService';
+import CreateChallengeModal from '../../components/CreateChallengeModal';
 
 export default function FriendsScreen() {
   const { user } = useAuth();
@@ -29,6 +30,9 @@ export default function FriendsScreen() {
   const [pendingRequests, setPendingRequests] = useState<Friend[]>([]);
   const [activeTab, setActiveTab] = useState<'friends' | 'search' | 'requests'>('friends');
   const [loading, setLoading] = useState(false);
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [selectedFriendId, setSelectedFriendId] = useState<string>('');
+  const [selectedFriendUsername, setSelectedFriendUsername] = useState<string>('');
 
   useEffect(() => {
     if (user) {
@@ -200,13 +204,26 @@ export default function FriendsScreen() {
                       </Text>
                       <Text style={styles.friendEmail}>{friend.friend_email || ''}</Text>
                     </View>
-                    <TouchableOpacity
-                      style={styles.removeButton}
-                      onPress={() => handleRemoveFriend(friend.id)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.removeButtonText}>✕</Text>
-                    </TouchableOpacity>
+                    <View style={styles.friendActions}>
+                      <TouchableOpacity
+                        style={styles.challengeButton}
+                        onPress={() => {
+                          setSelectedFriendId(friendId);
+                          setSelectedFriendUsername(friend.friend_username || '');
+                          setShowChallengeModal(true);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.challengeButtonText}>⚔️</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => handleRemoveFriend(friend.id)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.removeButtonText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 );
               })
@@ -250,6 +267,20 @@ export default function FriendsScreen() {
           </View>
         )}
       </ScrollView>
+
+      <CreateChallengeModal
+        visible={showChallengeModal}
+        onClose={() => {
+          setShowChallengeModal(false);
+          setSelectedFriendId('');
+          setSelectedFriendUsername('');
+        }}
+        challengedUserId={selectedFriendId}
+        challengedUsername={selectedFriendUsername}
+        onChallengeCreated={() => {
+          // Challenge created successfully
+        }}
+      />
     </View>
   );
 }
@@ -412,6 +443,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     fontWeight: '600',
+  },
+  friendActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  challengeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.accent1,
+  },
+  challengeButtonText: {
+    fontSize: 18,
+  },
+  friendActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  challengeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.accent1,
+  },
+  challengeButtonText: {
+    fontSize: 18,
   },
   removeButton: {
     width: 36,

@@ -23,6 +23,7 @@ import {
   Group,
   GroupJoinRequest,
 } from '../../services/groupsService';
+import CreateChallengeModal from '../../components/CreateChallengeModal';
 
 interface LeaderboardDetailScreenProps {
   groupId: string | 'global';
@@ -40,6 +41,9 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack }: 
   const [groupMembers, setGroupMembers] = useState<any[]>([]);
   const [editGroupName, setEditGroupName] = useState('');
   const [editGroupDescription, setEditGroupDescription] = useState('');
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [selectedUsername, setSelectedUsername] = useState<string>('');
 
   const isOwner = groupData && groupData.created_by === user?.id;
   const isGlobal = groupId === 'global';
@@ -276,7 +280,22 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack }: 
                       {entry.username.toUpperCase()}
                       {isCurrentUser && <Text style={styles.youLabel}> (YOU)</Text>}
                     </Text>
-                    <Text style={styles.points}>{entry.total_points.toLocaleString()} XP</Text>
+                    <View style={styles.headerRight}>
+                      <Text style={styles.points}>{entry.total_points.toLocaleString()} XP</Text>
+                      {!isCurrentUser && (
+                        <TouchableOpacity
+                          style={styles.challengeButton}
+                          onPress={() => {
+                            setSelectedUserId(entry.user_id);
+                            setSelectedUsername(entry.username);
+                            setShowChallengeModal(true);
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.challengeButtonText}>⚔️</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                   <View style={styles.statsRow}>
                     <View style={styles.statItem}>
@@ -454,6 +473,20 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack }: 
           </View>
         </View>
       </Modal>
+
+      <CreateChallengeModal
+        visible={showChallengeModal}
+        onClose={() => {
+          setShowChallengeModal(false);
+          setSelectedUserId('');
+          setSelectedUsername('');
+        }}
+        challengedUserId={selectedUserId}
+        challengedUsername={selectedUsername}
+        onChallengeCreated={() => {
+          // Challenge created successfully
+        }}
+      />
     </View>
   );
 }
@@ -587,6 +620,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  challengeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.accent1,
+    minWidth: 40,
+    minHeight: 40,
+  },
+  challengeButtonText: {
+    fontSize: 16,
   },
   username: {
     fontSize: 18,
