@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { supabase } from '../config/supabase';
 import { Colors } from '../constants/colors';
+import { useCustomAlert } from '../utils/alert';
 
 // Auth Screens
 import SimpleLoginScreen from '../screens/auth/SimpleLoginScreen';
@@ -49,6 +50,7 @@ type Screen =
 export default function AppNavigator() {
   const { session, loading } = useAuth();
   const { refreshStats } = useUserStats();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [showSignup, setShowSignup] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
@@ -132,7 +134,11 @@ export default function AppNavigator() {
 
   const handleCompleteWorkout = async (exerciseSets: ExerciseSet[]) => {
     if (!session?.user) {
-      Alert.alert('Error', 'You must be logged in');
+      showAlert({
+        title: 'Error',
+        message: 'You must be logged in',
+        type: 'error',
+      });
       return;
     }
 
@@ -144,7 +150,11 @@ export default function AppNavigator() {
     );
 
     if (result.error) {
-      Alert.alert('Error', result.error.message || 'Failed to process workout');
+      showAlert({
+        title: 'Error',
+        message: result.error.message || 'Failed to process workout',
+        type: 'error',
+      });
     } else {
       let message = `Workout Complete!\n\n`;
       message += `Session XP: ${result.data?.sessionXP.toLocaleString()}\n`;
@@ -157,17 +167,22 @@ export default function AppNavigator() {
       message += `\nLevel: ${result.data?.levelProgress.level}`;
       message += `\nXP Progress: ${result.data?.levelProgress.current} / ${result.data?.levelProgress.needed}`;
 
-      Alert.alert('Success', message, [
-        {
-          text: 'OK',
-          onPress: () => {
-            setCurrentScreen('home');
-            setSelectedExercises([]);
-            setSelectedTemplate(null);
-            refreshStats();
+      showAlert({
+        title: 'Success',
+        message,
+        type: 'success',
+        buttons: [
+          {
+            text: 'OK',
+            onPress: () => {
+              setCurrentScreen('home');
+              setSelectedExercises([]);
+              setSelectedTemplate(null);
+              refreshStats();
+            },
           },
-        },
-      ]);
+        ],
+      });
     }
   };
 
@@ -345,6 +360,7 @@ export default function AppNavigator() {
   return (
     <View style={styles.container}>
       {renderScreen()}
+      {AlertComponent}
       {showNav && (
         <View style={styles.tabBar}>
           <TouchableOpacity

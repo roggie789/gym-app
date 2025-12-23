@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { Colors } from '../constants/colors';
 import { createChallenge } from '../services/liftOffService';
 import { getExercises, Exercise } from '../services/exerciseService';
 import { useAuth } from '../contexts/AuthContext';
+import { useCustomAlert } from '../utils/alert';
 
 interface CreateChallengeModalProps {
   visible: boolean;
@@ -30,6 +30,7 @@ export default function CreateChallengeModal({
   onChallengeCreated,
 }: CreateChallengeModalProps) {
   const { user } = useAuth();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string>('');
   const [wagerXp, setWagerXp] = useState('');
@@ -48,22 +49,38 @@ export default function CreateChallengeModal({
 
   const handleCreate = async () => {
     if (!user) {
-      Alert.alert('Error', 'You must be logged in');
+      showAlert({
+        title: 'Error',
+        message: 'You must be logged in',
+        type: 'error',
+      });
       return;
     }
 
     if (!challengedUserId) {
-      Alert.alert('Error', 'Invalid user selected');
+      showAlert({
+        title: 'Error',
+        message: 'Invalid user selected',
+        type: 'error',
+      });
       return;
     }
 
     const wager = parseInt(wagerXp);
     if (!selectedExerciseId) {
-      Alert.alert('Error', 'Please select an exercise');
+      showAlert({
+        title: 'Error',
+        message: 'Please select an exercise',
+        type: 'error',
+      });
       return;
     }
     if (isNaN(wager) || wager <= 0) {
-      Alert.alert('Error', 'Please enter a valid XP wager');
+      showAlert({
+        title: 'Error',
+        message: 'Please enter a valid XP wager',
+        type: 'error',
+      });
       return;
     }
 
@@ -76,11 +93,19 @@ export default function CreateChallengeModal({
     setLoading(false);
 
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to create challenge');
+      showAlert({
+        title: 'Error',
+        message: error.message || 'Failed to create challenge',
+        type: 'error',
+      });
       return;
     }
 
-    Alert.alert('Success', 'Challenge sent!');
+    showAlert({
+      title: 'Success',
+      message: 'Challenge sent!',
+      type: 'success',
+    });
     setWagerXp('');
     setSelectedExerciseId('');
     onChallengeCreated();
@@ -88,13 +113,15 @@ export default function CreateChallengeModal({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
+    <>
+      {AlertComponent}
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        onRequestClose={onClose}
+      >
+        <View style={styles.overlay}>
         <View style={styles.modalContent}>
           <Text style={styles.title}>CHALLENGE TO LIFT-OFF</Text>
           <Text style={styles.subtitle}>
@@ -166,6 +193,7 @@ export default function CreateChallengeModal({
         </View>
       </View>
     </Modal>
+    </>
   );
 }
 

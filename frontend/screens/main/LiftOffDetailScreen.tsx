@@ -6,11 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Modal,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '../../constants/colors';
+import { useCustomAlert } from '../../utils/alert';
 import {
   getUserChallenges,
   getChallengeById,
@@ -31,6 +31,7 @@ export default function LiftOffDetailScreen({
   onChallengeUpdate,
 }: LiftOffDetailScreenProps) {
   const { user } = useAuth();
+  const { showAlert, AlertComponent } = useCustomAlert();
   const [challenge, setChallenge] = useState<LiftOffChallenge | null>(null);
   const [loading, setLoading] = useState(false);
   const [weight, setWeight] = useState('');
@@ -58,7 +59,11 @@ export default function LiftOffDetailScreen({
     
     if (error) {
       console.error('Error loading challenges:', error);
-      Alert.alert('Error', 'Failed to load challenge: ' + error.message);
+      showAlert({
+        title: 'Error',
+        message: 'Failed to load challenge: ' + error.message,
+        type: 'error',
+      });
       setLoading(false);
       return;
     }
@@ -78,7 +83,11 @@ export default function LiftOffDetailScreen({
 
     const weightValue = parseFloat(weight);
     if (isNaN(weightValue) || weightValue <= 0) {
-      Alert.alert('Error', 'Please enter a valid weight');
+      showAlert({
+        title: 'Error',
+        message: 'Please enter a valid weight',
+        type: 'error',
+      });
       return;
     }
 
@@ -87,11 +96,19 @@ export default function LiftOffDetailScreen({
     setLoading(false);
 
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to submit weight');
+      showAlert({
+        title: 'Error',
+        message: error.message || 'Failed to submit weight',
+        type: 'error',
+      });
       return;
     }
 
-    Alert.alert('Success', 'Weight submitted! Waiting for opponent...');
+    showAlert({
+      title: 'Success',
+      message: 'Weight submitted! Waiting for opponent...',
+      type: 'success',
+    });
     setShowWeightInput(false);
     setWeight('');
     loadChallenge();
@@ -105,11 +122,19 @@ export default function LiftOffDetailScreen({
     setLoading(false);
 
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to accept challenge');
+      showAlert({
+        title: 'Error',
+        message: error.message || 'Failed to accept challenge',
+        type: 'error',
+      });
       return;
     }
 
-    Alert.alert('Success', 'Challenge accepted! You have 7 days to complete your lift.');
+    showAlert({
+      title: 'Success',
+      message: 'Challenge accepted! You have 7 days to complete your lift.',
+      type: 'success',
+    });
     loadChallenge();
     // Notify parent to refresh challenges on home screen
     onChallengeUpdate?.();
@@ -118,27 +143,40 @@ export default function LiftOffDetailScreen({
   const handleDecline = async () => {
     if (!user) return;
 
-    Alert.alert('Decline Challenge', 'Are you sure you want to decline?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Decline',
-        style: 'destructive',
-        onPress: async () => {
-          setLoading(true);
-          const { error } = await declineChallenge(challengeId, user.id);
-          setLoading(false);
+    showAlert({
+      title: 'Decline Challenge',
+      message: 'Are you sure you want to decline?',
+      type: 'warning',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            const { error } = await declineChallenge(challengeId, user.id);
+            setLoading(false);
 
-          if (error) {
-            Alert.alert('Error', error.message || 'Failed to decline challenge');
-            return;
-          }
+            if (error) {
+              showAlert({
+                title: 'Error',
+                message: error.message || 'Failed to decline challenge',
+                type: 'error',
+              });
+              return;
+            }
 
-          Alert.alert('Challenge Declined', 'The challenge has been declined.');
-          onChallengeUpdate?.();
-          onBack();
+            showAlert({
+              title: 'Challenge Declined',
+              message: 'The challenge has been declined.',
+              type: 'info',
+            });
+            onChallengeUpdate?.();
+            onBack();
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   if (loading && !challenge) {
@@ -183,7 +221,9 @@ export default function LiftOffDetailScreen({
     : 0;
 
   return (
-    <View style={styles.container}>
+    <>
+      {AlertComponent}
+      <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.8}>
           <Text style={styles.backButtonText}>← BACK</Text>
@@ -377,6 +417,7 @@ export default function LiftOffDetailScreen({
         </View>
       </Modal>
     </View>
+    </>
   );
 }
 
