@@ -5,17 +5,20 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   TextInput,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
 import { logWorkout, getAttendanceHistory, AttendanceRecord } from '../../services/workoutService';
 import { getExercises, Exercise, ExerciseLog } from '../../services/exerciseService';
 import { useUserStats } from '../../hooks/useUserStats';
 
 export default function WorkoutsScreen() {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const { refreshStats } = useUserStats();
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -56,7 +59,7 @@ export default function WorkoutsScreen() {
 
   const handleAddExercise = () => {
     if (!selectedExercise || !weight || !reps) {
-      Alert.alert('Error', 'Please fill in exercise, weight, and reps');
+      showAlert({ title: 'Error', message: 'Please fill in exercise, weight, and reps' });
       return;
     }
 
@@ -82,12 +85,12 @@ export default function WorkoutsScreen() {
 
   const handleLogWorkout = async () => {
     if (!user) {
-      Alert.alert('Error', 'You must be logged in');
+      showAlert({ title: 'Error', message: 'You must be logged in' });
       return;
     }
 
     if (exerciseLogs.length === 0) {
-      Alert.alert('Error', 'Please add at least one exercise');
+      showAlert({ title: 'Error', message: 'Please add at least one exercise' });
       return;
     }
 
@@ -95,7 +98,7 @@ export default function WorkoutsScreen() {
     const result = await logWorkout(user.id, exerciseLogs, undefined, notes);
 
     if (result.error) {
-      Alert.alert('Error', result.error.message || 'Failed to log workout');
+      showAlert({ title: 'Error', message: result.error.message || 'Failed to log workout' });
     } else {
       let message = 'Workout logged successfully!';
       if (result.prsAchieved && result.prsAchieved.length > 0) {
@@ -106,7 +109,7 @@ export default function WorkoutsScreen() {
       if (parseFloat(result.pointsBreakdown?.streakMultiplier || '1') > 1) {
         message += ` (${result.pointsBreakdown?.streakMultiplier}x streak bonus!)`;
       }
-      Alert.alert('Success', message);
+      showAlert({ title: 'Success', message });
       setNotes('');
       setExerciseLogs([]);
       refreshStats();
@@ -149,7 +152,7 @@ export default function WorkoutsScreen() {
               <View style={styles.exerciseInfo}>
                 <Text style={styles.exerciseName}>{log.exercise_name}</Text>
                 <Text style={styles.exerciseDetails}>
-                  {log.weight}lbs × {log.reps} reps
+                  {log.weight}kg × {log.reps} reps
                   {log.sets && ` × ${log.sets} sets`}
                 </Text>
               </View>
@@ -220,7 +223,7 @@ export default function WorkoutsScreen() {
         transparent={true}
         onRequestClose={() => setShowAddExercise(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add Exercise</Text>
 
@@ -289,7 +292,7 @@ export default function WorkoutsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </ScrollView>
   );

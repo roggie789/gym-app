@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
 import { Colors } from '../../constants/colors';
 import { supabase } from '../../config/supabase';
 import { sendFriendRequest, getFriends } from '../../services/friendsService';
@@ -24,6 +26,8 @@ interface UserStats {
 
 export default function ViewProfileScreen({ userId, username: initialUsername, onBack }: ViewProfileScreenProps) {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [profileUsername, setProfileUsername] = useState(initialUsername || '');
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -99,9 +103,9 @@ export default function ViewProfileScreen({ userId, username: initialUsername, o
     setAddingFriend(false);
 
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to send friend request');
+      showAlert({ title: 'Error', message: error.message || 'Failed to send friend request' });
     } else {
-      Alert.alert('Success', 'Friend request sent!');
+      showAlert({ title: 'Success', message: 'Friend request sent!' });
       setFriendRequestPending(true);
     }
   };
@@ -116,7 +120,7 @@ export default function ViewProfileScreen({ userId, username: initialUsername, o
           <Text style={styles.title}>PROFILE</Text>
           <View style={{ width: 80 }} />
         </View>
-        <View style={styles.loadingContainer}>
+        <View style={[styles.loadingContainer, { paddingTop: insets.top + 40 }]}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       </View>
@@ -124,7 +128,7 @@ export default function ViewProfileScreen({ userId, username: initialUsername, o
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.8}>
           <Text style={styles.backButtonText}>← BACK</Text>
@@ -205,11 +209,10 @@ export default function ViewProfileScreen({ userId, username: initialUsername, o
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: 'transparent',
   },
   content: {
     padding: 20,
-    paddingTop: 60,
     paddingBottom: 100,
   },
   header: {
@@ -230,20 +233,17 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 2,
-    textShadowColor: Colors.primary,
-    textShadowOffset: { width: 0, height: 3 },
-    textShadowRadius: 6,
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
+    paddingTop: 40,
   },
   section: {
     backgroundColor: Colors.backgroundCard,

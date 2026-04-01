@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,22 +7,25 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronLeft, Swords, Coins, Trophy, Clock, Dumbbell } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '../../constants/colors';
 import { useCustomAlert } from '../../utils/alert';
+import { useChallengeDetail, useInvalidate } from '../../hooks/useQueryHooks';
 import {
-  getUserChallenges,
-  getChallengeById,
   submitLiftWeight,
   acceptChallenge,
   declineChallenge,
-  LiftOffChallenge,
 } from '../../services/liftOffService';
 
 interface LiftOffDetailScreenProps {
   challengeId: string;
   onBack: () => void;
+  onChallengeUpdate?: () => void;
 }
 
 export default function LiftOffDetailScreen({
@@ -31,118 +34,60 @@ export default function LiftOffDetailScreen({
   onChallengeUpdate,
 }: LiftOffDetailScreenProps) {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const { showAlert, AlertComponent } = useCustomAlert();
-  const [challenge, setChallenge] = useState<LiftOffChallenge | null>(null);
-  const [loading, setLoading] = useState(false);
+  const invalidate = useInvalidate();
+  const { data: challenge = null, isLoading: loading } = useChallengeDetail(challengeId);
+  const [submitting, setSubmitting] = useState(false);
   const [weight, setWeight] = useState('');
   const [showWeightInput, setShowWeightInput] = useState(false);
 
-  useEffect(() => {
-    loadChallenge();
-  }, [challengeId]);
-
-  const loadChallenge = async () => {
-    if (!user) return;
-    setLoading(true);
-    
-    // Try to get challenge directly by ID first
-    const { data: directChallenge, error: directError } = await getChallengeById(challengeId, user.id);
-    
-    if (directChallenge && !directError) {
-      setChallenge(directChallenge);
-      setLoading(false);
-      return;
-    }
-    
-    // Fallback to getting all challenges and finding the one
-    const { data, error } = await getUserChallenges(user.id);
-    
-    if (error) {
-      console.error('Error loading challenges:', error);
-      showAlert({
-        title: 'Error',
-        message: 'Failed to load challenge: ' + error.message,
-        type: 'error',
-      });
-      setLoading(false);
-      return;
-    }
-    
-    const found = data?.find((c) => c.id === challengeId);
-    
-    if (!found) {
-      console.error('Challenge not found. ChallengeId:', challengeId, 'Available challenges:', data?.map(c => c.id));
-    }
-    
-    setChallenge(found || null);
-    setLoading(false);
+  const refreshChallenge = () => {
+    invalidate.challengeDetail(challengeId);
+    invalidate.challenges();
   };
 
   const handleSubmitWeight = async () => {
     if (!user || !challenge) return;
-
     const weightValue = parseFloat(weight);
     if (isNaN(weightValue) || weightValue <= 0) {
-      showAlert({
-        title: 'Error',
-        message: 'Please enter a valid weight',
-        type: 'error',
-      });
+      showAlert({ title: 'Error', message: 'Please enter a valid weight', type: 'error' });
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     const { error } = await submitLiftWeight(challengeId, user.id, weightValue);
-    setLoading(false);
+    setSubmitting(false);
 
     if (error) {
-      showAlert({
-        title: 'Error',
-        message: error.message || 'Failed to submit weight',
-        type: 'error',
-      });
+      showAlert({ title: 'Error', message: error.message || 'Failed to submit weight', type: 'error' });
       return;
     }
 
-    showAlert({
-      title: 'Success',
-      message: 'Weight submitted! Waiting for opponent...',
-      type: 'success',
-    });
+    showAlert({ title: 'Success', message: 'Weight submitted! Waiting for opponent...', type: 'success' });
     setShowWeightInput(false);
     setWeight('');
-    loadChallenge();
+    refreshChallenge();
   };
 
   const handleAccept = async () => {
     if (!user) return;
-
-    setLoading(true);
+    setSubmitting(true);
     const { error } = await acceptChallenge(challengeId, user.id);
-    setLoading(false);
+    setSubmitting(false);
 
     if (error) {
-      showAlert({
-        title: 'Error',
-        message: error.message || 'Failed to accept challenge',
-        type: 'error',
-      });
+      showAlert({ title: 'Error', message: error.message || 'Failed to accept challenge', type: 'error' });
       return;
     }
 
-    showAlert({
-      title: 'Success',
-      message: 'Challenge accepted! You have 7 days to complete your lift.',
-      type: 'success',
-    });
-    loadChallenge();
-    // Notify parent to refresh challenges on home screen
+    showAlert({ title: 'Success', message: 'Challenge accepted! You have 7 days to complete your lift.', type: 'success' });
+    refreshChallenge();
     onChallengeUpdate?.();
   };
 
   const handleDecline = async () => {
     if (!user) return;
-
     showAlert({
       title: 'Decline Challenge',
       message: 'Are you sure you want to decline?',
@@ -153,24 +98,15 @@ export default function LiftOffDetailScreen({
           text: 'Decline',
           style: 'destructive',
           onPress: async () => {
-            setLoading(true);
+            setSubmitting(true);
             const { error } = await declineChallenge(challengeId, user.id);
-            setLoading(false);
-
+            setSubmitting(false);
             if (error) {
-              showAlert({
-                title: 'Error',
-                message: error.message || 'Failed to decline challenge',
-                type: 'error',
-              });
+              showAlert({ title: 'Error', message: error.message || 'Failed to decline', type: 'error' });
               return;
             }
-
-            showAlert({
-              title: 'Challenge Declined',
-              message: 'The challenge has been declined.',
-              type: 'info',
-            });
+            showAlert({ title: 'Challenge Declined', message: 'The challenge has been declined.', type: 'info' });
+            refreshChallenge();
             onChallengeUpdate?.();
             onBack();
           },
@@ -179,9 +115,9 @@ export default function LiftOffDetailScreen({
     });
   };
 
-  if (loading && !challenge) {
+  if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -189,234 +125,251 @@ export default function LiftOffDetailScreen({
 
   if (!challenge) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Challenge not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>← BACK</Text>
-        </TouchableOpacity>
+      <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7}>
+            <ChevronLeft size={18} color={Colors.textSecondary} strokeWidth={2} />
+            <Text style={styles.backButtonLabel}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>LIFT OFF</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={styles.errorText}>Challenge not found</Text>
+        </View>
       </View>
     );
   }
 
   const isChallenger = challenge.challenger_id === user?.id;
   const isChallenged = challenge.challenged_id === user?.id;
-  const opponent = isChallenger
-    ? challenge.challenged_username
-    : challenge.challenger_username;
-  const hasCompleted = isChallenger
-    ? !!challenge.challenger_completed_at
-    : !!challenge.challenged_completed_at;
-  const opponentCompleted = isChallenger
-    ? !!challenge.challenged_completed_at
-    : !!challenge.challenger_completed_at;
+  const opponent = isChallenger ? challenge.challenged_username : challenge.challenger_username;
+  const hasCompleted = isChallenger ? !!challenge.challenger_completed_at : !!challenge.challenged_completed_at;
+  const opponentCompleted = isChallenger ? !!challenge.challenged_completed_at : !!challenge.challenger_completed_at;
   const myWeight = isChallenger ? challenge.challenger_weight : challenge.challenged_weight;
-  const opponentWeight = isChallenger
-    ? challenge.challenged_weight
-    : challenge.challenger_weight;
+  const opponentWeight = isChallenger ? challenge.challenged_weight : challenge.challenger_weight;
   const daysLeft = challenge.expires_at
-    ? Math.ceil(
-        (new Date(challenge.expires_at).getTime() - new Date().getTime()) /
-          (1000 * 60 * 60 * 24)
-      )
+    ? Math.ceil((new Date(challenge.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : 0;
+
+  const statusColor =
+    challenge.status === 'pending' ? Colors.accent1 :
+    challenge.status === 'accepted' ? Colors.primary :
+    challenge.status === 'completed' ? Colors.success : Colors.textMuted;
 
   return (
     <>
       {AlertComponent}
-      <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.8}>
-          <Text style={styles.backButtonText}>← BACK</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>LIFT-OFF</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7}>
+            <ChevronLeft size={18} color={Colors.textSecondary} strokeWidth={2} />
+            <Text style={styles.backButtonLabel}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>LIFT OFF</Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.challengeCard}>
-          <View style={styles.vsSection}>
-            <Text style={styles.vsText}>VS</Text>
-            <Text style={styles.opponentName}>{opponent?.toUpperCase() || 'OPPONENT'}</Text>
+        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Status Badge */}
+          <View style={styles.statusBadgeRow}>
+            <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20`, borderColor: statusColor }]}>
+              <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+                {challenge.status.toUpperCase()}
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.exerciseSection}>
-            <Text style={styles.exerciseLabel}>EXERCISE</Text>
-            <Text style={styles.exerciseName}>
-              {challenge.exercise?.name.toUpperCase() || 'EXERCISE'}
-            </Text>
+          {/* VS Card */}
+          <View style={styles.card}>
+            <View style={styles.vsRow}>
+              <View style={styles.vsPlayer}>
+                <Text style={styles.vsPlayerLabel}>YOU</Text>
+                <View style={[styles.vsAvatar, { backgroundColor: Colors.primary }]}>
+                  <Swords size={18} color={Colors.textPrimary} strokeWidth={2} />
+                </View>
+              </View>
+              <Text style={styles.vsText}>VS</Text>
+              <View style={styles.vsPlayer}>
+                <Text style={styles.vsPlayerLabel}>{(opponent || 'OPPONENT').toUpperCase()}</Text>
+                <View style={[styles.vsAvatar, { backgroundColor: Colors.backgroundSecondary }]}>
+                  <Swords size={18} color={Colors.textSecondary} strokeWidth={2} />
+                </View>
+              </View>
+            </View>
           </View>
 
-          <View style={styles.wagerSection}>
-            <Text style={styles.wagerLabel}>WAGER</Text>
-            <Text style={styles.wagerAmount}>
-              {challenge.wager_xp.toLocaleString()} XP
-            </Text>
+          {/* Exercise & Wager */}
+          <View style={styles.card}>
+            <View style={styles.detailRow}>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>EXERCISE</Text>
+                <Text style={styles.detailValue}>{challenge.exercise?.name || 'Unknown'}</Text>
+              </View>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>WAGER</Text>
+                <View style={styles.wagerRow}>
+                  <Coins size={16} color={Colors.xpGold} strokeWidth={2} />
+                  <Text style={styles.wagerValue}>{challenge.wager_xp.toLocaleString()} gold</Text>
+                </View>
+              </View>
+            </View>
           </View>
 
-          {challenge.status === 'pending' && (
-            <View style={styles.pendingActions}>
-              {!isChallenger && isChallenged ? (
-                <>
-                  <Text style={styles.pendingText}>
-                    {challenge.challenger_username?.toUpperCase() || 'SOMEONE'} has challenged you!
-                  </Text>
-                  <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.acceptButton]}
-                      onPress={handleAccept}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.actionButtonText}>ACCEPT</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.declineButton]}
-                      onPress={handleDecline}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.actionButtonText}>DECLINE</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : isChallenger && !isChallenged ? (
-                <Text style={styles.pendingText}>
-                  Waiting for {challenge.challenged_username?.toUpperCase() || 'OPPONENT'} to respond...
-                </Text>
-              ) : (
-                <Text style={styles.pendingText}>
-                  Invalid challenge state. Please contact support.
-                </Text>
-              )}
+          {/* Pending: Receiver actions */}
+          {challenge.status === 'pending' && isChallenged && !isChallenger && (
+            <View style={styles.card}>
+              <Text style={styles.infoText}>
+                {challenge.challenger_username || 'Someone'} has challenged you!
+              </Text>
+              <View style={styles.actionRow}>
+                <TouchableOpacity style={styles.declineBtn} onPress={handleDecline} activeOpacity={0.7}>
+                  <Text style={styles.declineBtnText}>Decline</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.acceptBtn} onPress={handleAccept} activeOpacity={0.7}>
+                  <Text style={styles.acceptBtnText}>Accept</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
-          {challenge.status === 'accepted' && (
-            <>
-              <View style={styles.statusSection}>
-                <Text style={styles.statusLabel}>STATUS</Text>
-                <Text style={styles.statusText}>
-                  {hasCompleted
-                    ? 'WAITING FOR OPPONENT'
-                    : opponentCompleted
-                    ? 'OPPONENT COMPLETED - ENTER YOUR LIFT'
-                    : 'ENTER YOUR LIFT'}
-                </Text>
-                <Text style={styles.daysLeft}>
-                  {daysLeft} DAY{daysLeft !== 1 ? 'S' : ''} LEFT
+          {/* Pending: Sender waiting */}
+          {challenge.status === 'pending' && isChallenger && (
+            <View style={styles.card}>
+              <View style={styles.waitingRow}>
+                <Clock size={16} color={Colors.textMuted} strokeWidth={2} />
+                <Text style={styles.waitingText}>
+                  Waiting for {challenge.challenged_username || 'opponent'} to respond...
                 </Text>
               </View>
+            </View>
+          )}
 
-              {!hasCompleted && (
-                <TouchableOpacity
-                  style={styles.submitButton}
-                  onPress={() => setShowWeightInput(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.submitButtonText}>ENTER WEIGHT</Text>
-                </TouchableOpacity>
-              )}
-
-              {hasCompleted && (
-                <View style={styles.weightSection}>
-                  <Text style={styles.weightLabel}>YOUR LIFT</Text>
-                  <Text style={styles.weightValue}>
-                    {myWeight?.toLocaleString()} {challenge.exercise?.unit || 'kg'}
+          {/* Active challenge */}
+          {challenge.status === 'accepted' && (
+            <>
+              <View style={styles.card}>
+                <View style={styles.timerRow}>
+                  <Clock size={14} color={Colors.textMuted} strokeWidth={2} />
+                  <Text style={styles.timerText}>
+                    {daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining
                   </Text>
                 </View>
-              )}
 
-              {opponentCompleted && (
-                <View style={styles.weightSection}>
-                  <Text style={styles.weightLabel}>OPPONENT'S LIFT</Text>
-                  <Text style={styles.weightValue}>
-                    {opponentWeight?.toLocaleString()} {challenge.exercise?.unit || 'kg'}
-                  </Text>
+                <Text style={styles.infoText}>
+                  {hasCompleted ? 'Waiting for opponent to complete their lift...'
+                    : opponentCompleted ? 'Opponent has submitted — enter your lift!'
+                    : 'Enter your best lift for this exercise'}
+                </Text>
+
+                {!hasCompleted && (
+                  <TouchableOpacity style={styles.primaryBtn} onPress={() => setShowWeightInput(true)} activeOpacity={0.7}>
+                    <Dumbbell size={16} color={Colors.textPrimary} strokeWidth={2.5} />
+                    <Text style={styles.primaryBtnText}>Enter Weight</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Weight results */}
+              {(hasCompleted || opponentCompleted) && (
+                <View style={styles.card}>
+                  <Text style={styles.sectionLabel}>RESULTS</Text>
+                  {hasCompleted && (
+                    <View style={styles.weightResultRow}>
+                      <Text style={styles.weightResultLabel}>Your lift</Text>
+                      <Text style={styles.weightResultValue}>
+                        {myWeight?.toLocaleString()} {challenge.exercise?.unit || 'kg'}
+                      </Text>
+                    </View>
+                  )}
+                  {opponentCompleted && (
+                    <View style={styles.weightResultRow}>
+                      <Text style={styles.weightResultLabel}>{opponent}'s lift</Text>
+                      <Text style={styles.weightResultValue}>
+                        {opponentWeight?.toLocaleString()} {challenge.exercise?.unit || 'kg'}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
 
               {hasCompleted && opponentCompleted && challenge.winner_id && (
-                <View style={styles.resultSection}>
-                  <Text style={styles.resultLabel}>RESULT</Text>
+                <View style={[styles.card, styles.resultCard, challenge.winner_id === user?.id ? styles.winCard : styles.loseCard]}>
+                  <Trophy size={24} color={challenge.winner_id === user?.id ? Colors.xpGold : Colors.textMuted} strokeWidth={2} />
                   <Text style={styles.resultText}>
-                    {challenge.winner_id === user?.id
-                      ? '🏆 YOU WON!'
-                      : '😔 YOU LOST'}
+                    {challenge.winner_id === user?.id ? 'You Won!' : 'You Lost'}
                   </Text>
                 </View>
               )}
             </>
           )}
 
+          {/* Completed challenge */}
           {challenge.status === 'completed' && (
-            <View style={styles.resultSection}>
-              <Text style={styles.resultLabel}>FINAL RESULT</Text>
-              <Text style={styles.resultText}>
-                {challenge.winner_id === user?.id
-                  ? '🏆 YOU WON!'
-                  : '😔 YOU LOST'}
-              </Text>
-              <View style={styles.finalWeights}>
-                <Text style={styles.finalWeightText}>
-                  You: {myWeight?.toLocaleString()} {challenge.exercise?.unit || 'kg'}
-                </Text>
-                <Text style={styles.finalWeightText}>
-                  {opponent}: {opponentWeight?.toLocaleString()} {challenge.exercise?.unit || 'kg'}
+            <>
+              <View style={[styles.card, styles.resultCard, challenge.winner_id === user?.id ? styles.winCard : styles.loseCard]}>
+                <Trophy size={24} color={challenge.winner_id === user?.id ? Colors.xpGold : Colors.textMuted} strokeWidth={2} />
+                <Text style={styles.resultText}>
+                  {challenge.winner_id === user?.id ? 'You Won!' : 'You Lost'}
                 </Text>
               </View>
-            </View>
+              <View style={styles.card}>
+                <Text style={styles.sectionLabel}>FINAL SCORES</Text>
+                <View style={styles.weightResultRow}>
+                  <Text style={styles.weightResultLabel}>You</Text>
+                  <Text style={styles.weightResultValue}>
+                    {myWeight?.toLocaleString()} {challenge.exercise?.unit || 'kg'}
+                  </Text>
+                </View>
+                <View style={styles.weightResultRow}>
+                  <Text style={styles.weightResultLabel}>{opponent}</Text>
+                  <Text style={styles.weightResultValue}>
+                    {opponentWeight?.toLocaleString()} {challenge.exercise?.unit || 'kg'}
+                  </Text>
+                </View>
+              </View>
+            </>
           )}
-        </View>
-      </ScrollView>
+        </ScrollView>
 
-      {/* Weight Input Modal */}
-      <Modal
-        visible={showWeightInput}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowWeightInput(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>ENTER YOUR LIFT</Text>
-            <Text style={styles.modalSubtitle}>
-              {challenge.exercise?.name.toUpperCase()}
-            </Text>
-            <TextInput
-              style={styles.weightInput}
-              placeholder="Weight"
-              placeholderTextColor={Colors.textMuted}
-              value={weight}
-              onChangeText={setWeight}
-              keyboardType="decimal-pad"
-            />
-            <Text style={styles.unitText}>
-              {challenge.exercise?.unit || 'kg'}
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => {
-                  setShowWeightInput(false);
-                  setWeight('');
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalButtonTextCancel}>CANCEL</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm]}
-                onPress={handleSubmitWeight}
-                activeOpacity={0.8}
-                disabled={loading}
-              >
-                <Text style={styles.modalButtonTextConfirm}>
-                  {loading ? 'SUBMITTING...' : 'SUBMIT'}
-                </Text>
-              </TouchableOpacity>
+        {/* Weight Input Modal */}
+        <Modal visible={showWeightInput} transparent animationType="fade" onRequestClose={() => setShowWeightInput(false)}>
+          <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Enter Your Lift</Text>
+              <Text style={styles.modalSubtitle}>{challenge.exercise?.name}</Text>
+              <TextInput
+                style={styles.weightInput}
+                placeholder="0"
+                placeholderTextColor={Colors.textMuted}
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType="decimal-pad"
+                autoFocus
+              />
+              <Text style={styles.unitText}>{challenge.exercise?.unit || 'kg'}</Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => { setShowWeightInput(false); setWeight(''); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalConfirmBtn, submitting && { opacity: 0.5 }]}
+                  onPress={handleSubmitWeight}
+                  activeOpacity={0.7}
+                  disabled={submitting}
+                >
+                  <Text style={styles.modalConfirmText}>{submitting ? 'Submitting...' : 'Submit'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      </View>
     </>
   );
 }
@@ -424,347 +377,292 @@ export default function LiftOffDetailScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 16,
   },
   header: {
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: Colors.backgroundSecondary,
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 8,
   },
   backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: Colors.backgroundCard,
-    borderWidth: 2,
-    borderColor: Colors.border,
+    paddingHorizontal: 4,
   },
-  backButtonText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 1,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 2,
-    textShadowColor: Colors.primary,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 80,
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-  },
-  challengeCard: {
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  vsSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  vsText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: Colors.accent1,
-    letterSpacing: 3,
-    marginBottom: 8,
-  },
-  opponentName: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 1,
-  },
-  exerciseSection: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  exerciseLabel: {
-    fontSize: 11,
-    fontWeight: '800',
+  backButtonLabel: {
+    fontSize: 16,
+    lineHeight: 20,
     color: Colors.textSecondary,
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    textTransform: 'uppercase',
+    fontWeight: '500',
   },
-  exerciseName: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 1,
-  },
-  wagerSection: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  wagerLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.textSecondary,
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  wagerAmount: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: Colors.xpGold,
-    textShadowColor: Colors.xpGold,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  pendingActions: {
-    marginTop: 20,
-  },
-  pendingText: {
+  headerTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    minHeight: 50,
-  },
-  acceptButton: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.accent1,
-  },
-  declineButton: {
-    backgroundColor: Colors.backgroundSecondary,
-    borderColor: Colors.border,
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  statusSection: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  statusLabel: {
-    fontSize: 11,
-    fontWeight: '800',
     color: Colors.textSecondary,
-    letterSpacing: 1.5,
-    marginBottom: 8,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  statusText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: Colors.accent1,
-    marginBottom: 8,
-    textAlign: 'center',
+  headerSpacer: { width: 64 },
+  content: { flex: 1 },
+  scrollContent: { gap: 12, paddingBottom: 32 },
+
+  statusBadgeRow: { alignItems: 'center' },
+  statusBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
   },
-  daysLeft: {
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+
+  card: {
+    backgroundColor: Colors.backgroundCard,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 16,
+  },
+
+  vsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  vsPlayer: { alignItems: 'center', gap: 8, flex: 1 },
+  vsPlayerLabel: {
     fontSize: 12,
     fontWeight: '700',
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  vsAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vsText: {
+    fontSize: 18,
+    fontWeight: '900',
     color: Colors.textMuted,
-  },
-  submitButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.accent1,
-    marginTop: 12,
-  },
-  submitButtonText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: Colors.textPrimary,
     letterSpacing: 2,
-    textTransform: 'uppercase',
+    marginHorizontal: 12,
   },
-  weightSection: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: Colors.backgroundSecondary,
-    borderRadius: 12,
-    alignItems: 'center',
+
+  detailRow: { flexDirection: 'row', alignItems: 'center' },
+  detailItem: { flex: 1, alignItems: 'center', gap: 4 },
+  detailDivider: { width: 1, height: 36, backgroundColor: Colors.border },
+  detailLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    letterSpacing: 1,
   },
-  weightLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.textSecondary,
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  weightValue: {
-    fontSize: 20,
-    fontWeight: '900',
+  detailValue: {
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.textPrimary,
   },
-  resultSection: {
-    marginTop: 20,
-    padding: 20,
-    backgroundColor: Colors.backgroundSecondary,
-    borderRadius: 16,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.primary,
+  wagerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  wagerValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.xpGold,
   },
-  resultLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.textSecondary,
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  resultText: {
-    fontSize: 24,
-    fontWeight: '900',
+
+  infoText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: Colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 14,
+    lineHeight: 20,
+  },
+  actionRow: { flexDirection: 'row', gap: 10 },
+  declineBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: Colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  declineBtnText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
+  acceptBtn: {
+    flex: 2,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptBtnText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+
+  waitingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  waitingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     marginBottom: 12,
   },
-  finalWeights: {
-    marginTop: 12,
-    width: '100%',
+  timerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textMuted,
   },
-  finalWeightText: {
+
+  primaryBtn: {
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  primaryBtnText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  weightResultRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  weightResultLabel: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '600',
     color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 4,
   },
-  loadingText: {
+  weightResultValue: {
     fontSize: 16,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+
+  resultCard: { alignItems: 'center', gap: 8 },
+  winCard: { borderColor: Colors.xpGold },
+  loseCard: { borderColor: Colors.border },
+  resultText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: {
+    fontSize: 14,
     color: Colors.textSecondary,
     textAlign: 'center',
     marginTop: 40,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.danger,
     textAlign: 'center',
-    marginTop: 40,
   },
+
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: Colors.backgroundCard,
-    borderRadius: 24,
+    borderRadius: 16,
     padding: 24,
-    width: '90%',
-    maxWidth: 400,
-    borderWidth: 3,
-    borderColor: Colors.primary,
+    width: '100%',
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 17,
+    fontWeight: '700',
     color: Colors.textPrimary,
-    letterSpacing: 2,
-    marginBottom: 8,
-    textAlign: 'center',
+    marginBottom: 4,
   },
   modalSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.textSecondary,
-    marginBottom: 24,
-    textAlign: 'center',
+    marginBottom: 20,
   },
   weightInput: {
     backgroundColor: Colors.backgroundSecondary,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 14,
     fontSize: 24,
-    fontWeight: '900',
+    fontWeight: '800',
     color: Colors.textPrimary,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: Colors.border,
     width: '100%',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   unitText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.textSecondary,
-    marginBottom: 24,
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    marginBottom: 20,
   },
   modalButtons: {
     flexDirection: 'row',
     width: '100%',
-    justifyContent: 'space-between',
+    gap: 10,
   },
-  modalButton: {
+  modalCancelBtn: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-  },
-  modalButtonCancel: {
+    height: 44,
+    borderRadius: 10,
     backgroundColor: Colors.backgroundSecondary,
+    borderWidth: 1,
     borderColor: Colors.border,
-    marginRight: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalButtonConfirm: {
+  modalCancelText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
+  modalConfirmBtn: {
+    flex: 2,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: Colors.primary,
-    borderColor: Colors.accent1,
-    marginLeft: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalButtonTextCancel: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: Colors.textSecondary,
-    letterSpacing: 1,
-  },
-  modalButtonTextConfirm: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 1,
-  },
+  modalConfirmText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
 });
-

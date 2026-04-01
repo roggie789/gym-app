@@ -8,7 +8,11 @@ import {
   TextInput,
 } from 'react-native';
 import { getExercises, Exercise } from '../../services/exerciseService';
+import { ChevronLeft } from 'lucide-react-native';
 import { Colors } from '../../constants/colors';
+import { MobileShell } from '../../components/MobileShell';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
 
 interface ExerciseSelectionScreenProps {
   onExerciseSelected: (exercise: Exercise) => void;
@@ -34,7 +38,7 @@ export default function ExerciseSelectionScreen({
 
   const loadExercises = async () => {
     setLoading(true);
-    const { data, error } = await getExercises();
+    const { data } = await getExercises();
     if (data) {
       setExercises(data);
     }
@@ -50,29 +54,37 @@ export default function ExerciseSelectionScreen({
   });
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>SELECT EXERCISES</Text>
-        <View style={styles.placeholder} />
-      </View>
+    <MobileShell noTabBar>
+      <View style={styles.main}>
+        <View style={styles.header}>
+          <Button variant="ghost" onPress={onBack} style={styles.backButton}>
+            <ChevronLeft size={18} color={Colors.textSecondary} strokeWidth={2} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </Button>
+          <Text style={styles.headerTitle}>SELECT EXERCISES</Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-      <View style={styles.searchSection}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search..."
-          placeholderTextColor={Colors.textMuted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
+        <View style={styles.searchSection}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search..."
+            placeholderTextColor={Colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+          contentContainerStyle={styles.categoryScrollContent}
+        >
         <TouchableOpacity
           style={[styles.categoryChip, !selectedCategory && styles.categoryChipActive]}
           onPress={() => setSelectedCategory(null)}
+          activeOpacity={0.7}
         >
           <Text style={[styles.categoryText, !selectedCategory && styles.categoryTextActive]}>
             ALL
@@ -86,6 +98,7 @@ export default function ExerciseSelectionScreen({
               selectedCategory === category && styles.categoryChipActive,
             ]}
             onPress={() => setSelectedCategory(category)}
+            activeOpacity={0.7}
           >
             <Text
               style={[
@@ -97,16 +110,15 @@ export default function ExerciseSelectionScreen({
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+        </ScrollView>
 
-      <ScrollView style={styles.exerciseList} contentContainerStyle={styles.exerciseListContent}>
+        <ScrollView style={styles.exerciseList} contentContainerStyle={styles.exerciseListContent}>
         {loading ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>Loading...</Text>
           </View>
         ) : filteredExercises.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🔍</Text>
             <Text style={styles.emptyText}>No exercises found</Text>
           </View>
         ) : (
@@ -115,269 +127,199 @@ export default function ExerciseSelectionScreen({
             return (
               <TouchableOpacity
                 key={exercise.id}
-                style={[styles.exerciseCard, isSelected && styles.exerciseCardSelected]}
+                activeOpacity={0.7}
                 onPress={() => onExerciseSelected(exercise)}
-                disabled={isSelected}
-                activeOpacity={0.8}
               >
-                <View style={styles.exerciseCardGlow} />
-                <View style={styles.exerciseInfo}>
-                  <Text style={styles.exerciseName}>{exercise.name.toUpperCase()}</Text>
-                  <Text style={styles.exerciseCategory}>{exercise.category}</Text>
-                </View>
-                {isSelected && (
-                  <View style={styles.selectedBadge}>
-                    <Text style={styles.selectedBadgeText}>✓</Text>
-                  </View>
-                )}
-                <View style={styles.exerciseCardBorder} />
+                <Card
+                  style={[
+                    styles.exerciseCard,
+                    isSelected && styles.exerciseCardSelected,
+                  ]}
+                >
+                  <Text style={styles.exerciseName} numberOfLines={1}>
+                    {exercise.name.toUpperCase()}
+                  </Text>
+                  {isSelected && (
+                    <View style={styles.selectedBadge}>
+                      <Text style={styles.selectedBadgeText}>✓</Text>
+                    </View>
+                  )}
+                </Card>
               </TouchableOpacity>
             );
           })
         )}
-      </ScrollView>
+        </ScrollView>
 
-      {selectedExerciseIds.length > 0 && (
-        <View style={styles.footer}>
-          <Text style={styles.selectedCount}>
-            {selectedExerciseIds.length} SELECTED
-          </Text>
-          <TouchableOpacity style={styles.startButton} onPress={onStartWorkout} activeOpacity={0.9}>
-            <View style={styles.startButtonGlow} />
-            <Text style={styles.startButtonText}>START WORKOUT</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+        {selectedExerciseIds.length > 0 && (
+          <View style={styles.footer}>
+            <Text style={styles.selectedCount}>
+              {selectedExerciseIds.length} SELECTED
+            </Text>
+            <Button onPress={onStartWorkout} style={styles.startButton}>
+              Start Workout
+            </Button>
+          </View>
+        )}
+      </View>
+    </MobileShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  main: {
     flex: 1,
-    backgroundColor: Colors.background,
+    flexDirection: 'column',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: Colors.backgroundSecondary,
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   backButton: {
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: Colors.backgroundCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    height: 40,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   backButtonText: {
-    color: Colors.accent1,
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 16,
+    lineHeight: 20,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 2,
-    textShadowColor: Colors.primary,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+  headerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
-  placeholder: {
-    width: 40,
+  headerSpacer: {
+    width: 64,
   },
   searchSection: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    marginBottom: 6,
   },
   searchInput: {
     backgroundColor: Colors.backgroundCard,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-    borderWidth: 2,
+    fontSize: 14,
+    fontWeight: '600',
+    borderWidth: 1,
     borderColor: Colors.border,
   },
   categoryScroll: {
-    maxHeight: 50,
-    marginBottom: 12,
-    paddingLeft: 16,
+    height: 36,
+    maxHeight: 36,
+    marginBottom: 8,
+    alignSelf: 'stretch',
+  },
+  categoryScrollContent: {
+    alignItems: 'center',
+    flexGrow: 0,
   },
   categoryChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minHeight: 28,
+    borderRadius: 14,
     backgroundColor: Colors.backgroundCard,
-    marginRight: 10,
-    borderWidth: 2,
+    marginRight: 8,
+    borderWidth: 1,
     borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   categoryChipActive: {
-    backgroundColor: Colors.secondary,
-    borderColor: Colors.accent1,
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   categoryText: {
     color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
   categoryTextActive: {
     color: Colors.textPrimary,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   exerciseList: {
     flex: 1,
   },
   exerciseListContent: {
-    padding: 16,
+    paddingBottom: 24,
+    gap: 8,
+    flexGrow: 0,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-    opacity: 0.5,
+    paddingVertical: 48,
   },
   emptyText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     color: Colors.textSecondary,
   },
   exerciseCard: {
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 18,
-    padding: 20,
-    marginBottom: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 2,
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
     borderColor: Colors.border,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: Colors.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    backgroundColor: Colors.backgroundCardTransparent,
+    minHeight: 48,
   },
   exerciseCardSelected: {
-    opacity: 0.7,
-    borderColor: Colors.accent1,
+    borderColor: Colors.primary,
     backgroundColor: Colors.backgroundSecondary,
-  },
-  exerciseCardGlow: {
-    position: 'absolute',
-    top: -10,
-    right: -10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.secondary,
-    opacity: 0.2,
-  },
-  exerciseInfo: {
-    flex: 1,
   },
   exerciseName: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '800',
     color: Colors.textPrimary,
-    marginBottom: 6,
-    letterSpacing: 1,
-  },
-  exerciseCategory: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+    flex: 1,
   },
   selectedBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.accent1,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.textPrimary,
+    marginLeft: 8,
   },
   selectedBadgeText: {
-    color: Colors.background,
-    fontSize: 20,
+    color: Colors.textPrimary,
+    fontSize: 14,
     fontWeight: '900',
   },
-  exerciseCardBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.textPrimary,
-    opacity: 0.1,
-  },
   footer: {
-    backgroundColor: Colors.backgroundSecondary,
-    borderTopWidth: 2,
-    borderTopColor: Colors.primary,
-    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 10,
   },
   selectedCount: {
-    color: Colors.accent1,
-    fontSize: 12,
-    marginBottom: 12,
-    textAlign: 'center',
-    fontWeight: '800',
-    letterSpacing: 1.5,
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
   startButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 20,
-    padding: 18,
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: Colors.accent1,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  startButtonGlow: {
-    position: 'absolute',
-    top: -20,
-    right: -20,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.accent1,
-    opacity: 0.3,
-  },
-  startButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    height: 44,
   },
 });

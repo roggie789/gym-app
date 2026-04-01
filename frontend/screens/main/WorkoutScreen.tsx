@@ -6,38 +6,65 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
 import { Exercise } from '../../services/exerciseService';
 import { ExerciseSet } from '../../services/xpService';
+import { ChevronLeft } from 'lucide-react-native';
+import { useAlert } from '../../contexts/AlertContext';
 import { Colors } from '../../constants/colors';
+import { MobileShell } from '../../components/MobileShell';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+
+export interface TemplateExerciseDetail {
+  id: string;
+  sets: number;
+  reps: number;
+  tags: string[];
+}
 
 interface WorkoutScreenProps {
   exercises: Exercise[];
+  templateDetails?: TemplateExerciseDetail[];
   onComplete: (exerciseSets: ExerciseSet[]) => void;
   onBack: () => void;
 }
 
 interface ExerciseWithSets {
   exercise: Exercise;
+  tags: string[];
   sets: Array<{ weight: string; reps: string }>;
 }
 
 export default function WorkoutScreen({
   exercises,
+  templateDetails,
   onComplete,
   onBack,
 }: WorkoutScreenProps) {
-  const [exerciseData, setExerciseData] = useState<ExerciseWithSets[]>(
-    exercises.map((ex) => ({
-      exercise: ex,
-      sets: [{ weight: '', reps: '' }],
-    }))
+  const { showAlert } = useAlert();
+  const [exerciseData, setExerciseData] = useState<ExerciseWithSets[]>(() =>
+    exercises.map((ex) => {
+      const detail = templateDetails?.find((d) => d.id === ex.id);
+      const numSets = detail ? Math.max(detail.sets, 1) : 1;
+      return {
+        exercise: ex,
+        tags: detail?.tags || [],
+        sets: Array.from({ length: numSets }, () => ({ weight: '', reps: '' })),
+      };
+    })
   );
 
   const addSet = (exerciseIndex: number) => {
     const updated = [...exerciseData];
     updated[exerciseIndex].sets.push({ weight: '', reps: '' });
+    setExerciseData(updated);
+  };
+
+  const removeSet = (exerciseIndex: number, setIndex: number) => {
+    const updated = [...exerciseData];
+    if (updated[exerciseIndex].sets.length <= 1) return;
+    updated[exerciseIndex].sets.splice(setIndex, 1);
     setExerciseData(updated);
   };
 
@@ -69,7 +96,7 @@ export default function WorkoutScreen({
         const reps = parseInt(set.reps);
 
         if (isNaN(weight) || isNaN(reps) || weight <= 0 || reps <= 0) {
-          Alert.alert('Error', `Invalid values for ${exData.exercise.name}`);
+          showAlert({ title: 'Error', message: `Invalid values for ${exData.exercise.name}` });
           return;
         }
       }
@@ -103,7 +130,7 @@ export default function WorkoutScreen({
     }
 
     if (exerciseSets.length === 0) {
-      Alert.alert('Error', 'Please fill in at least one set for at least one exercise');
+      showAlert({ title: 'Error', message: 'Please fill in at least one set for at least one exercise' });
       return;
     }
 
@@ -111,272 +138,252 @@ export default function WorkoutScreen({
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>WORKOUT</Text>
-        <View style={styles.placeholder} />
-      </View>
-
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+    <MobileShell noTabBar>
+      <ScrollView
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          <Button variant="ghost" onPress={onBack} style={styles.backButton}>
+            <ChevronLeft size={18} color={Colors.textSecondary} strokeWidth={2} />
+            <Text style={styles.backButtonLabel}>Back</Text>
+          </Button>
+          <Text style={styles.headerTitle}>WORKOUT</Text>
+          <View style={styles.headerSpacer} />
+        </View>
         {exerciseData.map((exData, exerciseIndex) => (
-          <View key={exData.exercise.id} style={styles.exerciseCard}>
-            <View style={styles.exerciseCardGlow} pointerEvents="none" />
-            <View style={styles.exerciseHeader}>
-              <View>
-                <Text style={styles.exerciseName}>{exData.exercise.name.toUpperCase()}</Text>
-                <Text style={styles.exerciseCategory}>{exData.exercise.category}</Text>
-              </View>
-            </View>
-
-            <View style={styles.setsSection}>
-              <Text style={styles.setsSubheading}>SETS</Text>
-              {exData.sets.map((set, setIndex) => (
-                <View key={setIndex} style={styles.setRow}>
-                  <View style={styles.setInputs}>
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>WEIGHT ({exData.exercise.unit})</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="0"
-                        placeholderTextColor={Colors.textMuted}
-                        value={set.weight}
-                        onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'weight', value)}
-                        keyboardType="decimal-pad"
-                      />
-                    </View>
-                    <View style={[styles.inputGroup, styles.inputGroupLast]}>
-                      <Text style={styles.inputLabel}>REPS</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="0"
-                        placeholderTextColor={Colors.textMuted}
-                        value={set.reps}
-                        onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'reps', value)}
-                        keyboardType="number-pad"
-                      />
-                    </View>
+          <Card key={exData.exercise.id} style={styles.exerciseCard}>
+            <Text style={styles.exerciseName}>
+              {exData.exercise.name.toUpperCase()}
+            </Text>
+            {exData.tags.length > 0 ? (
+              <View style={styles.tagsRow}>
+                {exData.tags.map((tag, ti) => (
+                  <View key={ti} style={styles.tagChip}>
+                    <Text style={styles.tagChipText}>{tag}</Text>
                   </View>
-                </View>
-              ))}
+                ))}
+              </View>
+            ) : (
+              <View style={{ height: 6 }} />
+            )}
 
-              <TouchableOpacity
-                style={styles.addSetButton}
-                onPress={() => addSet(exerciseIndex)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.addSetText}>+ ADD SET</Text>
-              </TouchableOpacity>
+            <View style={styles.setsHeader}>
+              <Text style={styles.setsLabel}>SETS</Text>
+              <Text style={styles.setsCount}>{exData.sets.length}</Text>
             </View>
-            <View style={styles.exerciseCardBorder} pointerEvents="none" />
-          </View>
+
+            {exData.sets.map((set, setIndex) => (
+              <View key={setIndex} style={styles.setRow}>
+                <Text style={styles.setNumber}>{setIndex + 1}</Text>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    WEIGHT ({exData.exercise.unit})
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0"
+                    placeholderTextColor={Colors.textMuted}
+                    value={set.weight}
+                    onChangeText={(v) => updateSet(exerciseIndex, setIndex, 'weight', v)}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>REPS</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0"
+                    placeholderTextColor={Colors.textMuted}
+                    value={set.reps}
+                    onChangeText={(v) => updateSet(exerciseIndex, setIndex, 'reps', v)}
+                    keyboardType="number-pad"
+                  />
+                </View>
+                {exData.sets.length > 1 && (
+                  <TouchableOpacity
+                    style={styles.removeSetButton}
+                    onPress={() => removeSet(exerciseIndex, setIndex)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.removeSetText}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={styles.addSetRow}
+              onPress={() => addSet(exerciseIndex)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.addSetText}>+ Add Set</Text>
+            </TouchableOpacity>
+          </Card>
         ))}
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} activeOpacity={0.9}>
-          <View style={styles.submitButtonGlow} pointerEvents="none" />
-          <Text style={styles.submitButtonText}>COMPLETE WORKOUT</Text>
-        </TouchableOpacity>
+        <Button onPress={handleSubmit} style={styles.submitButton}>
+          Complete Workout
+        </Button>
       </ScrollView>
-    </View>
+    </MobileShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: Colors.backgroundSecondary,
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   backButton: {
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: Colors.backgroundCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    height: 40,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  backButtonText: {
-    color: Colors.accent1,
-    fontSize: 18,
-    fontWeight: '900',
+  backButtonLabel: {
+    fontSize: 16,
+    lineHeight: 20,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 2,
-    textShadowColor: Colors.primary,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+  headerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
-  placeholder: {
-    width: 40,
+  headerSpacer: {
+    width: 64,
   },
-  content: {
+  list: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 100,
+  listContent: {
+    gap: 12,
+    paddingBottom: 8,
   },
   exerciseCard: {
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.backgroundCardTransparent,
     padding: 14,
-    marginBottom: 14,
-    borderWidth: 2,
-    borderColor: Colors.secondary,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: Colors.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  exerciseCardGlow: {
-    position: 'absolute',
-    top: -15,
-    right: -15,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: Colors.secondary,
-    opacity: 0.2,
-  },
-  exerciseHeader: {
-    marginBottom: 12,
   },
   exerciseName: {
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '800',
     color: Colors.textPrimary,
+    letterSpacing: 0.5,
     marginBottom: 4,
-    letterSpacing: 1,
   },
-  exerciseCategory: {
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: 8,
+  },
+  tagChip: {
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  tagChipText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    letterSpacing: 0.5,
+  },
+  setsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  setsLabel: {
     fontSize: 11,
-    color: Colors.textSecondary,
     fontWeight: '700',
-    textTransform: 'uppercase',
+    color: Colors.textSecondary,
     letterSpacing: 1,
   },
-  setsSection: {
-    marginTop: 6,
-  },
-  setsSubheading: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: Colors.accent1,
-    marginBottom: 12,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+  setsCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textMuted,
   },
   setRow: {
-    marginBottom: 12,
-  },
-  setInputs: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginBottom: 8,
+  },
+  setNumber: {
+    width: 20,
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    textAlign: 'center',
+    paddingBottom: 10,
   },
   inputGroup: {
     flex: 1,
-    marginRight: 6,
-  },
-  inputGroupLast: {
-    flex: 1,
-    marginRight: 0,
   },
   inputLabel: {
-    fontSize: 10,
-    color: Colors.textSecondary,
-    marginBottom: 6,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontSize: 9,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: 4,
     textTransform: 'uppercase',
   },
   input: {
     backgroundColor: Colors.background,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
-    borderWidth: 2,
+    fontSize: 14,
+    fontWeight: '700',
+    borderWidth: 1,
     borderColor: Colors.border,
   },
-  addSetButton: {
-    marginTop: 8,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.secondary,
+  removeSetButton: {
+    width: 24,
+    height: 24,
     borderRadius: 12,
-    borderStyle: 'dashed',
     backgroundColor: Colors.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-end',
+    marginBottom: 2,
+  },
+  removeSetText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.danger,
+  },
+  addSetRow: {
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    marginTop: 4,
   },
   addSetText: {
-    color: Colors.secondary,
     fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+    fontWeight: '700',
+    color: Colors.textSecondary,
   },
   submitButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 24,
-    padding: 22,
-    alignItems: 'center',
-    marginTop: 20,
-    borderWidth: 3,
-    borderColor: Colors.accent1,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  submitButtonGlow: {
-    position: 'absolute',
-    top: -30,
-    right: -30,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.accent1,
-    opacity: 0.3,
-  },
-  submitButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 3 },
-    textShadowRadius: 6,
-  },
-  exerciseCardBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.textPrimary,
-    opacity: 0.1,
+    height: 48,
+    marginTop: 4,
   },
 });

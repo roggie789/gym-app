@@ -9,6 +9,7 @@ export interface Friend {
   created_at: string;
   friend_username?: string;
   friend_email?: string;
+  friend_level?: number;
 }
 
 export interface UserProfile {
@@ -127,13 +128,25 @@ export async function getFriends(userId: string) {
     .select('id, username, email')
     .in('id', friendIds);
 
+  // Get levels from user_stats
+  const { data: statsData } = await supabase
+    .from('user_stats')
+    .select('user_id, level')
+    .in('user_id', friendIds);
+
   // Create a map of friend_id to profile
   const profileMap = new Map<string, { username: string; email: string }>();
   (profiles || []).forEach(profile => {
     profileMap.set(profile.id, { username: profile.username, email: profile.email });
   });
 
-  // Add username and email to friend records
+  // Create a map of friend_id to level
+  const levelMap = new Map<string, number>();
+  (statsData || []).forEach((stat: any) => {
+    levelMap.set(stat.user_id, stat.level || 1);
+  });
+
+  // Add username, email, and level to friend records
   const friendsWithProfiles = data.map(friend => {
     const friendId = friend.user_id === userId ? friend.friend_id : friend.user_id;
     const profile = profileMap.get(friendId);
@@ -141,6 +154,7 @@ export async function getFriends(userId: string) {
       ...friend,
       friend_username: profile?.username,
       friend_email: profile?.email,
+      friend_level: levelMap.get(friendId) || 1,
     };
   });
 

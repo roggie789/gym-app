@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, Animated } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
 import { Colors } from '../../constants/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import TexturedBackground from '../../components/TexturedBackground';
 
 interface SimpleLoginScreenProps {
   onSwitchToSignup: () => void;
@@ -10,16 +16,72 @@ interface SimpleLoginScreenProps {
 
 const REMEMBER_ME_KEY = '@gym_app_remember_me';
 
+// Feature icons as emoji (can be replaced with icon library later)
+const ShieldIcon = () => <Text style={styles.iconText}>🛡️</Text>;
+const FlameIcon = () => <Text style={styles.iconText}>🔥</Text>;
+const SwordsIcon = () => <Text style={styles.iconText}>⚔️</Text>;
+
+function BrandMark() {
+  return (
+    <View style={styles.brandMarkContainer}>
+      <View style={styles.brandMark}>
+        <View style={styles.brandIcon}>
+          <Text style={styles.brandIconText}>🔥</Text>
+        </View>
+        <View>
+          <Text style={styles.brandTitle}>UpLift</Text>
+          <Text style={styles.brandSubtitle}>Train like it's a quest.</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function FeatureCard({ icon: Icon, title, body }: { icon: React.ComponentType; title: string; body: string }) {
+  return (
+    <Card style={styles.featureCard}>
+      <View style={styles.featureCardContent}>
+        <View style={styles.featureIconContainer}>
+          <Icon />
+        </View>
+        <View style={styles.featureTextContainer}>
+          <Text style={styles.featureTitle}>{title}</Text>
+          <Text style={styles.featureBody}>{body}</Text>
+        </View>
+      </View>
+    </Card>
+  );
+}
+
 export default function SimpleLoginScreen({ onSwitchToSignup }: SimpleLoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signIn, signInWithOAuth } = useAuth();
+  const { showAlert } = useAlert();
+  const insets = useSafeAreaInsets();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 450,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 450,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert({ title: 'Error', message: 'Please fill in all fields' });
       return;
     }
 
@@ -28,222 +90,274 @@ export default function SimpleLoginScreen({ onSwitchToSignup }: SimpleLoginScree
     setLoading(false);
 
     if (error) {
-      Alert.alert('Login Failed', error.message || 'Invalid credentials');
+      showAlert({ title: 'Login Failed', message: error.message || 'Invalid credentials' });
     } else {
-      // Save remember me preference
       if (rememberMe) {
         await AsyncStorage.setItem(REMEMBER_ME_KEY, 'true');
       } else {
         await AsyncStorage.removeItem(REMEMBER_ME_KEY);
       }
     }
-    // If successful, the AuthContext will update and AppNavigator will show Dashboard
+  };
+
+  const features = [
+    {
+      icon: ShieldIcon,
+      title: 'Level & XP',
+      body: 'Every set earns XP. Every month is a new run.',
+    },
+    {
+      icon: FlameIcon,
+      title: 'Streaks',
+      body: 'Keep your flame alive with weekly consistency.',
+    },
+    {
+      icon: SwordsIcon,
+      title: 'Lift Off',
+      body: 'Wager gold, challenge friends, claim glory.',
+    },
+  ];
+
+  const animatedStyle = {
+    opacity: fadeAnim,
+    transform: [{ translateY: slideAnim }],
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>START GAME</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TouchableOpacity
-        style={styles.rememberMeContainer}
-        onPress={() => setRememberMe(!rememberMe)}
-        activeOpacity={0.8}
+    <TexturedBackground>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-          {rememberMe && <Text style={styles.checkmark}>✓</Text>}
-        </View>
-        <Text style={styles.rememberMeText}>Remember Me</Text>
-      </TouchableOpacity>
-      <TouchableOpacity 
-        style={[styles.button, loading && styles.buttonDisabled]} 
-        onPress={handleLogin}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? 'Logging in...' : 'Login'}
-        </Text>
-      </TouchableOpacity>
-      <View style={styles.divider}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>OR</Text>
-        <View style={styles.dividerLine} />
-      </View>
+        <Animated.View style={[styles.container, animatedStyle]}>
+          <BrandMark />
 
-      <TouchableOpacity 
-        style={styles.socialButton}
-        onPress={() => signInWithOAuth('google')}
-      >
-        <Text style={styles.socialButtonText}>Continue with Google</Text>
-      </TouchableOpacity>
+          <Card style={styles.loginCard}>
+            <CardContent style={styles.cardContentInner}>
+              <CardHeader style={styles.cardHeaderInner}>
+                <CardTitle style={styles.cardTitleText}>Log in</CardTitle>
+                <CardDescription>Welcome back. Your next level is waiting.</CardDescription>
+              </CardHeader>
 
-      <TouchableOpacity 
-        style={styles.socialButton}
-        onPress={() => signInWithOAuth('apple')}
-      >
-        <Text style={styles.socialButtonText}>Continue with Apple</Text>
-      </TouchableOpacity>
+              <View style={styles.form}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Email</Text>
+                  <Input
+                    testID="input-email"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="you@domain.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.input}
+                  />
+                </View>
 
-      <TouchableOpacity style={styles.linkButton} onPress={onSwitchToSignup}>
-        <Text style={styles.linkText}>
-          Don't have an account? <Text style={styles.linkTextBold}>Sign up</Text>
-        </Text>
-      </TouchableOpacity>
-    </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Password</Text>
+                  <Input
+                    testID="input-password"
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="••••••••"
+                    secureTextEntry
+                    style={styles.input}
+                  />
+                </View>
+
+                <Button
+                  testID="button-login"
+                  onPress={handleLogin}
+                  disabled={loading}
+                  style={styles.primaryButton}
+                >
+                  {loading ? 'Logging in...' : 'Enter the Gym'}
+                </Button>
+
+                <View style={styles.socialButtons}>
+                  <Button
+                    testID="button-google-login"
+                    variant="secondary"
+                    onPress={() => signInWithOAuth('google')}
+                    style={styles.socialButton}
+                  >
+                    Continue with Google
+                  </Button>
+                  <Button
+                    testID="button-apple-login"
+                    variant="secondary"
+                    onPress={() => signInWithOAuth('apple')}
+                    style={styles.socialButton}
+                  >
+                    Continue with Apple
+                  </Button>
+                </View>
+
+                <Button
+                  testID="button-to-signup"
+                  variant="ghost"
+                  onPress={onSwitchToSignup}
+                  style={styles.linkButton}
+                >
+                  New here? Create an account
+                </Button>
+              </View>
+            </CardContent>
+          </Card>
+
+          <View style={styles.featuresContainer}>
+            {features.map((feature, index) => (
+              <FeatureCard
+                key={feature.title}
+                icon={feature.icon}
+                title={feature.title}
+                body={feature.body}
+              />
+            ))}
+          </View>
+        </Animated.View>
+      </ScrollView>
+    </TexturedBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    padding: 20,
-    justifyContent: 'center',
+  scrollContent: {
+    flexGrow: 1,
+    padding: 16,
   },
-  title: {
-    fontSize: 48,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: 48,
-    color: Colors.accent1,
-    textShadowColor: Colors.primary,
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 8,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
+  container: {
+    gap: 24,
+  },
+  brandMarkContainer: {
+    position: 'relative',
+  },
+  brandMark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    position: 'relative',
+  },
+  brandIcon: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  brandIconText: {
+    fontSize: 24,
+  },
+  brandTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  brandSubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  loginCard: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.backgroundCardTransparent,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  cardContentInner: {
+    padding: 20,
+  },
+  cardHeaderInner: {
+    padding: 0,
+    paddingTop: 6,
+    marginBottom: 16,
+  },
+  cardTitleText: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  form: {
+    gap: 12,
+  },
+  inputGroup: {
+    gap: 8,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textPrimary,
   },
   input: {
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 18,
-    padding: 20,
-    marginBottom: 16,
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    borderWidth: 2,
-    borderColor: Colors.border,
+    height: 44,
+    backgroundColor: Colors.backgroundSecondary,
   },
-  button: {
-    backgroundColor: Colors.primary,
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
-    marginTop: 12,
-    borderWidth: 3,
-    borderColor: Colors.accent1,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-    elevation: 12,
+  primaryButton: {
+    height: 44,
+    marginTop: 4,
   },
-  buttonText: {
-    color: Colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 3 },
-    textShadowRadius: 6,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  linkButton: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  linkText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  linkTextBold: {
-    fontWeight: '900',
-    color: Colors.accent1,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 28,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 2,
-    backgroundColor: Colors.border,
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
+  socialButtons: {
+    flexDirection: 'column',
+    gap: 12,
+    marginTop: 4,
   },
   socialButton: {
+    height: 44,
+  },
+  linkButton: {
+    height: 44,
+    marginTop: 4,
+  },
+  featuresContainer: {
+    gap: 12,
+  },
+  featureCard: {
+    borderWidth: 1,
+    borderColor: Colors.border,
     backgroundColor: Colors.backgroundCard,
-    borderRadius: 18,
-    padding: 18,
-    alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: Colors.secondary,
-    shadowColor: Colors.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  socialButtonText: {
-    color: Colors.secondary,
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  rememberMeContainer: {
+  featureCardContent: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    marginTop: 8,
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 16,
   },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: Colors.secondary,
-    backgroundColor: Colors.backgroundCard,
-    marginRight: 12,
-    alignItems: 'center',
+  featureIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.backgroundSecondary,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  checkboxChecked: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.accent1,
+  iconText: {
+    fontSize: 20,
   },
-  checkmark: {
-    color: Colors.textPrimary,
+  featureTextContainer: {
+    flex: 1,
+    gap: 4,
+  },
+  featureTitle: {
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
-  rememberMeText: {
-    color: Colors.textSecondary,
+  featureBody: {
     fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    color: Colors.textSecondary,
+    lineHeight: 20,
   },
 });
-

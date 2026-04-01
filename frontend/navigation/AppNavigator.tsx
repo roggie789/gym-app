@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../config/supabase';
 import { Colors } from '../constants/colors';
 import { useCustomAlert } from '../utils/alert';
+import { useInvalidate, useChallengesRealtime } from '../hooks/useQueryHooks';
+import { TopHeader } from '../components/TopHeader';
 
 // Auth Screens
 import SimpleLoginScreen from '../screens/auth/SimpleLoginScreen';
@@ -15,6 +18,7 @@ import SessionSelectionScreen from '../screens/main/SessionSelectionScreen';
 import ExerciseSelectionScreen from '../screens/main/ExerciseSelectionScreen';
 import WorkoutScreen from '../screens/main/WorkoutScreen';
 import SessionTemplatesScreen from '../screens/main/SessionTemplatesScreen';
+import GymScreen from '../screens/main/GymScreen';
 import MonthlyXPHistoryScreen from '../screens/main/MonthlyXPHistoryScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import FriendsScreen from '../screens/main/FriendsScreen';
@@ -24,10 +28,15 @@ import LeaderboardDetailScreen from '../screens/main/LeaderboardDetailScreen';
 import LiftOffDetailScreen from '../screens/main/LiftOffDetailScreen';
 import ChallengeHistoryScreen from '../screens/main/ChallengeHistoryScreen';
 import ViewProfileScreen from '../screens/main/ViewProfileScreen';
+import HabitsScreen from '../screens/main/HabitsScreen';
+import TexturedBackground from '../components/TexturedBackground';
+import { BottomTabs } from '../components/BottomTabs';
+import { SwipeableTabView } from '../components/SwipeableTabView';
+import { WorkoutCompleteModal, WorkoutResult } from '../components/WorkoutCompleteModal';
 
 // Services
 import { Exercise } from '../services/exerciseService';
-import { ExerciseSet, processWorkoutSession } from '../services/xpService';
+import { ExerciseSet, processWorkoutSession, getMonthlyStreakMultiplier } from '../services/xpService';
 import { getExercises } from '../services/exerciseService';
 import { useUserStats } from '../hooks/useUserStats';
 
@@ -37,6 +46,7 @@ type Screen =
   | 'exercise-selection'
   | 'workout'
   | 'templates'
+  | 'deck-selection'
   | 'monthly-xp'
   | 'profile'
   | 'friends'
@@ -45,12 +55,21 @@ type Screen =
   | 'leaderboard-detail'
   | 'lift-off-detail'
   | 'challenge-history'
-  | 'view-profile';
+  | 'view-profile'
+  | 'habits'
+  | 'gym'
+  | 'tbd';
+
+// Tab bar order: left to right = TBD, Habits, Home, Gym, Clans (must match BottomTabs)
+const TAB_ROUTES: Screen[] = ['tbd', 'habits', 'home', 'gym', 'leaderboard'];
 
 export default function AppNavigator() {
   const { session, loading } = useAuth();
   const { refreshStats } = useUserStats();
   const { showAlert, AlertComponent } = useCustomAlert();
+  const invalidate = useInvalidate();
+  const insets = useSafeAreaInsets();
+  useChallengesRealtime();
   const [showSignup, setShowSignup] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
@@ -61,37 +80,12 @@ export default function AppNavigator() {
   const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(null);
   const [viewingProfileUsername, setViewingProfileUsername] = useState<string>('');
   const [previousScreen, setPreviousScreen] = useState<Screen>('home');
+  const [workoutResult, setWorkoutResult] = useState<WorkoutResult | null>(null);
+  const [showWorkoutComplete, setShowWorkoutComplete] = useState(false);
 
-  // Calculate streak multiplier
+  // Streak multiplier: 1 + 0.05 per session this month (resets monthly)
   const getStreakMultiplier = async (userId: string): Promise<number> => {
-    const { data: stats } = await supabase
-      .from('user_stats')
-      .select('current_streak, last_workout_date')
-      .eq('user_id', userId)
-      .single();
-
-    if (!stats) return 1.0;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const lastWorkout = stats.last_workout_date
-      ? new Date(stats.last_workout_date)
-      : null;
-
-    if (lastWorkout) {
-      lastWorkout.setHours(0, 0, 0, 0);
-      const daysDiff = Math.floor(
-        (today.getTime() - lastWorkout.getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      if (daysDiff === 1) {
-        // Consecutive day
-        const streak = (stats.current_streak || 0) + 1;
-        return Math.min(1.0 + (streak - 1) * 0.1, 2.0);
-      }
-    }
-
-    return 1.0;
+    return getMonthlyStreakMultiplier(userId);
   };
 
   const handleStartSession = () => {
@@ -100,11 +94,14 @@ export default function AppNavigator() {
 
   const handleSelectTemplate = (template: any) => {
     setSelectedTemplate(template);
-    // Load exercises from template
+    // Load exercises from template — handle both old string[] and new ExerciseDetail[] formats
     getExercises().then(({ data: allExercises }) => {
       if (allExercises) {
+        const exerciseIds: string[] = template.exercises.map((item: any) =>
+          typeof item === 'string' ? item : item.id
+        );
         const templateExercises = allExercises.filter((e) =>
-          template.exercises.includes(e.id)
+          exerciseIds.includes(e.id)
         );
         setSelectedExercises(templateExercises);
         setCurrentScreen('workout');
@@ -118,15 +115,21 @@ export default function AppNavigator() {
   };
 
   const handleExerciseSelected = (exercise: Exercise) => {
-    if (!selectedExercises.find((e) => e.id === exercise.id)) {
+    const exists = selectedExercises.find((e) => e.id === exercise.id);
+    if (exists) {
+      setSelectedExercises(selectedExercises.filter((e) => e.id !== exercise.id));
+    } else {
       setSelectedExercises([...selectedExercises, exercise]);
     }
-    // Stay on selection screen to add more
   };
 
   const handleStartWorkout = () => {
     if (selectedExercises.length === 0) {
-      Alert.alert('Error', 'Please select at least one exercise');
+      showAlert({
+        title: 'Error',
+        message: 'Please select at least one exercise',
+        type: 'error',
+      });
       return;
     }
     setCurrentScreen('workout');
@@ -156,33 +159,17 @@ export default function AppNavigator() {
         type: 'error',
       });
     } else {
-      let message = `Workout Complete!\n\n`;
-      message += `Session XP: ${result.data?.sessionXP.toLocaleString()}\n`;
-      if (result.data?.prsAchieved && result.data.prsAchieved > 0) {
-        message += `🎉 ${result.data.prsAchieved} PR${result.data.prsAchieved > 1 ? 's' : ''} achieved!\n`;
-      }
-      if (streakMultiplier > 1) {
-        message += `${streakMultiplier.toFixed(1)}x streak multiplier!\n`;
-      }
-      message += `\nLevel: ${result.data?.levelProgress.level}`;
-      message += `\nXP Progress: ${result.data?.levelProgress.current} / ${result.data?.levelProgress.needed}`;
-
-      showAlert({
-        title: 'Success',
-        message,
-        type: 'success',
-        buttons: [
-          {
-            text: 'OK',
-            onPress: () => {
-              setCurrentScreen('home');
-              setSelectedExercises([]);
-              setSelectedTemplate(null);
-              refreshStats();
-            },
-          },
-        ],
+      setWorkoutResult({
+        sessionXP: result.data?.sessionXP || 0,
+        exerciseXP: result.data?.exerciseXP || 0,
+        prsAchieved: result.data?.prsAchieved || 0,
+        streakMultiplier: result.data?.streakMultiplier || 1,
+        goldEarned: result.data?.goldEarned || 0,
+        newLevel: result.data?.newLevel || 1,
+        levelProgress: result.data?.levelProgress || { current: 0, needed: 100, level: 1 },
+        exerciseLogs: result.data?.exerciseLogs,
       });
+      setShowWorkoutComplete(true);
     }
   };
 
@@ -191,9 +178,9 @@ export default function AppNavigator() {
       case 'session-selection':
         return (
           <SessionSelectionScreen
-            onSelectTemplate={handleSelectTemplate}
             onSelectIndividual={handleSelectIndividual}
-            onBack={() => setCurrentScreen('home')}
+            onViewTemplates={() => setCurrentScreen('deck-selection')}
+            onBack={() => setCurrentScreen('gym')}
           />
         );
       case 'exercise-selection':
@@ -207,7 +194,6 @@ export default function AppNavigator() {
         );
       case 'workout':
         if (selectedExercises.length === 0) {
-          // If no exercises selected, go back to selection
           return (
             <ExerciseSelectionScreen
               onExerciseSelected={handleExerciseSelected}
@@ -217,9 +203,22 @@ export default function AppNavigator() {
             />
           );
         }
+        const templateDetails = selectedTemplate?.exercises
+          ?.map((item: any) => {
+            if (typeof item !== 'object' || !item.id) return null;
+            const tags: string[] = item.tags?.length
+              ? item.tags
+              : item.label
+                ? [item.label]
+                : [];
+            return { id: item.id, sets: item.sets ?? 1, reps: item.reps ?? 10, tags };
+          })
+          .filter(Boolean) || undefined;
+
         return (
           <WorkoutScreen
             exercises={selectedExercises}
+            templateDetails={templateDetails}
             onComplete={handleCompleteWorkout}
             onBack={() => {
               if (selectedTemplate) {
@@ -230,14 +229,40 @@ export default function AppNavigator() {
             }}
           />
         );
+      case 'gym':
+        return (
+          <GymScreen
+            onStartWorkout={() => setCurrentScreen('session-selection')}
+            onViewChallenge={(challengeId) => {
+              setSelectedLiftOffId(challengeId);
+              setCurrentScreen('lift-off-detail');
+            }}
+            onViewClans={() => setCurrentScreen('leaderboard')}
+          />
+        );
       case 'templates':
-        return <SessionTemplatesScreen />;
+        return (
+          <SessionTemplatesScreen
+            onViewProfile={() => setCurrentScreen('profile')}
+            onViewFriends={() => setCurrentScreen('friends')}
+            onViewSettings={() => setCurrentScreen('profile')}
+          />
+        );
+      case 'deck-selection':
+        return (
+          <SessionTemplatesScreen
+            onSelectTemplate={handleSelectTemplate}
+            onBack={() => setCurrentScreen('session-selection')}
+          />
+        );
       case 'monthly-xp':
-        return <MonthlyXPHistoryScreen />;
+        return <MonthlyXPHistoryScreen onBack={() => setCurrentScreen('profile')} />;
       case 'profile':
         return (
           <ProfileScreen
             onViewChallengeHistory={() => setCurrentScreen('challenge-history')}
+            onViewMonthlyXP={() => setCurrentScreen('monthly-xp')}
+            onClose={() => setCurrentScreen('home')}
           />
         );
       case 'challenge-history':
@@ -259,6 +284,7 @@ export default function AppNavigator() {
               setViewingProfileUsername(username);
               setCurrentScreen('view-profile');
             }}
+            onClose={() => setCurrentScreen('home')}
           />
         );
       case 'groups':
@@ -301,37 +327,24 @@ export default function AppNavigator() {
         return (
           <LiftOffDetailScreen
             challengeId={selectedLiftOffId || ''}
-            onBack={() => {
-              setCurrentScreen('home');
-              // Trigger refresh by re-rendering home screen
-              setTimeout(() => {
-                if ((HomeScreen as any).refreshChallenges) {
-                  (HomeScreen as any).refreshChallenges();
-                }
-              }, 100);
-            }}
-            onChallengeUpdate={() => {
-              // Go back to home and refresh challenges
-              setCurrentScreen('home');
-              setTimeout(() => {
-                if ((HomeScreen as any).refreshChallenges) {
-                  (HomeScreen as any).refreshChallenges();
-                }
-              }, 100);
-            }}
+            onBack={() => setCurrentScreen('home')}
+            onChallengeUpdate={() => setCurrentScreen('home')}
           />
+        );
+      case 'habits':
+        return <HabitsScreen />;
+      case 'tbd':
+        return (
+          <View style={styles.placeholderTab}>
+            <Text style={styles.placeholderIcon}>🚧</Text>
+            <Text style={styles.placeholderTitle}>Coming Soon</Text>
+            <Text style={styles.placeholderSubtitle}>This feature is under construction</Text>
+          </View>
         );
       default:
         return (
           <HomeScreen
             onStartSession={handleStartSession}
-            onViewLiftOff={(challengeId) => {
-              setSelectedLiftOffId(challengeId);
-              setCurrentScreen('lift-off-detail');
-            }}
-            onChallengeUpdate={() => {
-              // Refresh will happen automatically via useEffect
-            }}
           />
         );
     }
@@ -353,82 +366,120 @@ export default function AppNavigator() {
   }
 
   // Don't show nav on workout/selection screens or detail screens
-  const showNav = !['session-selection', 'exercise-selection', 'workout', 'leaderboard-detail', 'lift-off-detail', 'challenge-history', 'view-profile'].includes(
+  const showNav = !['session-selection', 'exercise-selection', 'workout', 'deck-selection', 'templates', 'leaderboard-detail', 'lift-off-detail', 'challenge-history', 'view-profile', 'friends', 'profile', 'monthly-xp'].includes(
     currentScreen
   );
 
+  const handleNavigate = (screen: string) => {
+    setCurrentScreen(screen as Screen);
+  };
+
+  const tabIndex = TAB_ROUTES.indexOf(currentScreen);
+  const canSwipe = showNav && tabIndex >= 0;
+
+  // Render a tab screen by route for use as adjacent pager content
+  const renderTabScreen = (route: Screen) => {
+    switch (route) {
+      case 'tbd':
+        return (
+          <View style={styles.placeholderTab}>
+            <Text style={styles.placeholderIcon}>🚧</Text>
+            <Text style={styles.placeholderTitle}>Coming Soon</Text>
+            <Text style={styles.placeholderSubtitle}>This feature is under construction</Text>
+          </View>
+        );
+      case 'habits':
+        return <HabitsScreen noTopPadding />;
+      case 'gym':
+        return (
+          <GymScreen
+            onStartWorkout={() => setCurrentScreen('session-selection')}
+            onViewChallenge={(challengeId) => {
+              setSelectedLiftOffId(challengeId);
+              setCurrentScreen('lift-off-detail');
+            }}
+            onViewClans={() => setCurrentScreen('leaderboard')}
+            noTopPadding
+          />
+        );
+      case 'leaderboard':
+        return (
+          <LeaderboardScreen
+            onSelectLeaderboard={(groupId, groupData) => {
+              setSelectedLeaderboardId(groupId);
+              setSelectedLeaderboardData(groupData);
+              setCurrentScreen('leaderboard-detail');
+            }}
+            noTopPadding
+          />
+        );
+      case 'home':
+      default:
+        return (
+          <HomeScreen
+            onStartSession={handleStartSession}
+            noTopPadding
+          />
+        );
+    }
+  };
+
+  const tabScreens = TAB_ROUTES.map(route => renderTabScreen(route));
+
   return (
-    <View style={styles.container}>
-      {renderScreen()}
-      {AlertComponent}
-      {showNav && (
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            style={[styles.tab, currentScreen === 'home' && styles.tabActive]}
-            onPress={() => setCurrentScreen('home')}
-          >
-            <Text
-              style={[styles.tabText, currentScreen === 'home' && styles.tabTextActive]}
-            >
-              Home
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, currentScreen === 'templates' && styles.tabActive]}
-            onPress={() => setCurrentScreen('templates')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                currentScreen === 'templates' && styles.tabTextActive,
-              ]}
-            >
-              Templates
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, currentScreen === 'leaderboard' && styles.tabActive]}
-            onPress={() => setCurrentScreen('leaderboard')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                currentScreen === 'leaderboard' && styles.tabTextActive,
-              ]}
-            >
-              Leaderboard
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, currentScreen === 'friends' && styles.tabActive]}
-            onPress={() => setCurrentScreen('friends')}
-          >
-            <Text
-              style={[styles.tabText, currentScreen === 'friends' && styles.tabTextActive]}
-            >
-              Friends
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, currentScreen === 'profile' && styles.tabActive]}
-            onPress={() => setCurrentScreen('profile')}
-          >
-            <Text
-              style={[styles.tabText, currentScreen === 'profile' && styles.tabTextActive]}
-            >
-              Profile
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+    <TexturedBackground>
+      <View style={styles.container}>
+        {canSwipe ? (
+          <>
+            <View style={[styles.sharedHeader, { paddingTop: insets.top + 8 }]}>
+              <TopHeader
+                onViewProfile={() => setCurrentScreen('profile')}
+                onViewFriends={() => setCurrentScreen('friends')}
+                onViewSettings={() => setCurrentScreen('profile')}
+              />
+            </View>
+            <SwipeableTabView
+              tabs={tabScreens}
+              activeIndex={tabIndex}
+              onChangeIndex={(index) => setCurrentScreen(TAB_ROUTES[index])}
+            />
+            {AlertComponent}
+          </>
+        ) : (
+          <>
+            {renderScreen()}
+            {AlertComponent}
+          </>
+        )}
+        {showNav && (
+          <BottomTabs currentScreen={currentScreen} onNavigate={handleNavigate} />
+        )}
+        <WorkoutCompleteModal
+          visible={showWorkoutComplete}
+          result={workoutResult}
+          onDismiss={() => {
+            setShowWorkoutComplete(false);
+            setWorkoutResult(null);
+            setCurrentScreen('home');
+            setSelectedExercises([]);
+            setSelectedTemplate(null);
+            refreshStats();
+            invalidate.challenges();
+          }}
+        />
+      </View>
+    </TexturedBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: 'transparent',
+  },
+  sharedHeader: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
   loadingContainer: {
     flex: 1,
@@ -441,41 +492,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: Colors.backgroundSecondary,
-    borderTopWidth: 2,
-    borderTopColor: Colors.primary,
-    paddingVertical: 12,
-    paddingBottom: 20,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 12,
-  },
-  tab: {
+  placeholderTab: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    gap: 8,
   },
-  tabActive: {
-    borderTopWidth: 3,
-    borderTopColor: Colors.accent1,
-    paddingTop: 5,
+  placeholderIcon: {
+    fontSize: 36,
+    marginBottom: 4,
   },
-  tabText: {
-    fontSize: 10,
-    color: Colors.textSecondary,
-    fontWeight: '800',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+  placeholderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
   },
-  tabTextActive: {
-    color: Colors.accent1,
-    fontWeight: '900',
-    textShadowColor: Colors.accent1,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 6,
+  placeholderSubtitle: {
+    fontSize: 14,
+    color: Colors.textMuted,
+    textAlign: 'center',
   },
 });

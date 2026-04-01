@@ -1,38 +1,4 @@
 import { supabase } from '../config/supabase';
-import { getXPForLevel } from './xpService';
-
-/**
- * Convert cumulative XP to level and remaining XP for current level
- */
-function calculateLevelFromCumulativeXP(cumulativeXP: number): { level: number; remainingXP: number } {
-  let level = 1;
-  let remainingXP = cumulativeXP;
-  
-  while (level < 100) {
-    const xpForLevel = getXPForLevel(level);
-    if (remainingXP >= xpForLevel) {
-      remainingXP -= xpForLevel;
-      level++;
-    } else {
-      break;
-    }
-  }
-  
-  return { level, remainingXP };
-}
-
-/**
- * Convert level and remaining XP to cumulative total XP
- */
-function calculateCumulativeXPFromLevel(level: number, remainingXP: number): number {
-  let cumulativeXP = remainingXP;
-  
-  for (let l = 1; l < level; l++) {
-    cumulativeXP += getXPForLevel(l);
-  }
-  
-  return cumulativeXP;
-}
 
 export interface LiftOffChallenge {
   id: string;
@@ -87,11 +53,9 @@ export async function createChallenge(
       };
     }
 
-    // Check if challenger has enough XP
-    // Use level_xp as it's the canonical XP value (total_points may not be updated in new system)
     const { data: stats, error: statsError } = await supabase
       .from('user_stats')
-      .select('level_xp, total_points, level')
+      .select('gold')
       .eq('user_id', challengerId)
       .single();
 
@@ -102,35 +66,11 @@ export async function createChallenge(
       };
     }
 
-    // level_xp is now cumulative (total XP from level 0)
-    // Calculate current level XP for display/validation
-    const currentLevel = stats.level || 1;
-    const levelXP = stats.level_xp || 0;
-    
-    // Calculate cumulative XP up to current level (levels 1 through level-1)
-    let cumulativeXPForPreviousLevels = 0;
-    for (let level = 1; level < currentLevel; level++) {
-      cumulativeXPForPreviousLevels += getXPForLevel(level);
-    }
-    
-    // Check if level_xp is in old format (non-cumulative) or new format (cumulative)
-    let cumulativeXP: number;
-    if (levelXP < cumulativeXPForPreviousLevels) {
-      // Old format: level_xp is just current level XP, convert to cumulative
-      cumulativeXP = cumulativeXPForPreviousLevels + levelXP;
-    } else {
-      // New format: already cumulative
-      cumulativeXP = levelXP;
-    }
-    
-    // For validation, we check against total cumulative XP
-    // Users can wager from their total accumulated XP, not just current level XP
-    const availableXP = cumulativeXP;
-
-    if (availableXP < params.wagerXp) {
+    const availableGold = stats.gold || 0;
+    if (availableGold < params.wagerXp) {
       return {
         data: null,
-        error: new Error(`Insufficient XP to create challenge. You have ${availableXP} XP but need ${params.wagerXp} XP.`),
+        error: new Error(`Insufficient gold. You have ${availableGold} gold but need ${params.wagerXp}.`),
       };
     }
 
@@ -254,11 +194,9 @@ export async function acceptChallenge(
   userId: string
 ): Promise<ChallengeResponse> {
   try {
-    // Check if user has enough XP
-    // Use level_xp as it's the canonical XP value (total_points may not be updated in new system)
     const { data: stats, error: statsError } = await supabase
       .from('user_stats')
-      .select('level_xp, total_points, level')
+      .select('gold')
       .eq('user_id', userId)
       .single();
 
@@ -269,7 +207,6 @@ export async function acceptChallenge(
       };
     }
 
-    // Get challenge to check wager
     const { data: challenge, error: challengeError } = await supabase
       .from('lift_off_challenges')
       .select('wager_xp, challenged_id')
@@ -290,35 +227,11 @@ export async function acceptChallenge(
       };
     }
 
-    // level_xp is now cumulative (total XP from level 0)
-    // Calculate current level XP for display/validation
-    const currentLevel = stats.level || 1;
-    const levelXP = stats.level_xp || 0;
-    
-    // Calculate cumulative XP up to current level (levels 1 through level-1)
-    let cumulativeXPForPreviousLevels = 0;
-    for (let level = 1; level < currentLevel; level++) {
-      cumulativeXPForPreviousLevels += getXPForLevel(level);
-    }
-    
-    // Check if level_xp is in old format (non-cumulative) or new format (cumulative)
-    let cumulativeXP: number;
-    if (levelXP < cumulativeXPForPreviousLevels) {
-      // Old format: level_xp is just current level XP, convert to cumulative
-      cumulativeXP = cumulativeXPForPreviousLevels + levelXP;
-    } else {
-      // New format: already cumulative
-      cumulativeXP = levelXP;
-    }
-    
-    // For validation, we check against total cumulative XP
-    // Users can wager from their total accumulated XP, not just current level XP
-    const availableXP = cumulativeXP;
-
-    if (availableXP < challenge.wager_xp) {
+    const availableGold = stats.gold || 0;
+    if (availableGold < challenge.wager_xp) {
       return {
         data: null,
-        error: new Error(`Insufficient XP to accept challenge. You have ${availableXP} XP but need ${challenge.wager_xp} XP.`),
+        error: new Error(`Insufficient gold. You have ${availableGold} gold but need ${challenge.wager_xp}.`),
       };
     }
 
@@ -444,7 +357,7 @@ export async function submitLiftWeight(
       updatedChallenge.challenger_weight &&
       updatedChallenge.challenged_weight
     ) {
-      // Determine winner and transfer XP
+      // Determine winner and transfer gold
       const winnerId =
         updatedChallenge.challenger_weight > updatedChallenge.challenged_weight
           ? updatedChallenge.challenger_id
@@ -468,20 +381,14 @@ export async function submitLiftWeight(
 }
 
 /**
- * Complete challenge and transfer XP
+ * Complete challenge and transfer gold between winner and loser
  */
 async function completeChallenge(
   challengeId: string,
   winnerId: string,
-  wagerXp: number
+  wagerGold: number
 ): Promise<void> {
   try {
-    console.log('\n=== LIFT-OFF CHALLENGE COMPLETION ===');
-    console.log('Challenge ID:', challengeId);
-    console.log('Winner ID:', winnerId);
-    console.log('Wager XP:', wagerXp);
-    
-    // Get challenge details
     const { data: challenge, error: challengeError } = await supabase
       .from('lift_off_challenges')
       .select('challenger_id, challenged_id')
@@ -489,7 +396,6 @@ async function completeChallenge(
       .single();
 
     if (challengeError || !challenge) {
-      console.error('ERROR: Challenge not found:', challengeError);
       throw new Error('Challenge not found');
     }
 
@@ -497,133 +403,42 @@ async function completeChallenge(
       winnerId === challenge.challenger_id
         ? challenge.challenged_id
         : challenge.challenger_id;
-    
-    console.log('Loser ID:', loserId);
 
-    // Transfer XP: winner gains, loser loses
-    // Get current stats for both users (we need level_xp, level, total_points, current_month_xp, and challenges_won)
     const { data: winnerStats } = await supabase
       .from('user_stats')
-      .select('level_xp, level, total_points, current_month_xp, challenges_won')
+      .select('gold, challenges_won')
       .eq('user_id', winnerId)
       .single();
 
     const { data: loserStats } = await supabase
       .from('user_stats')
-      .select('level_xp, level, total_points, current_month_xp')
+      .select('gold')
       .eq('user_id', loserId)
       .single();
 
-    if (!winnerStats) {
-      console.error('ERROR: Winner stats not found for user:', winnerId);
-      throw new Error('Winner stats not found');
-    }
-    
-    // Winner gains wager XP
-    // level_xp is now cumulative (total XP from level 0)
-    const winnerCurrentLevel = winnerStats.level || 1;
-    const winnerCurrentLevelXP = winnerStats.level_xp || 0;
-    
-    // Check if level_xp is in old format (non-cumulative) or new format (cumulative)
-    let winnerCurrentCumulativeXP: number;
-    const winnerCumulativeXPForPreviousLevels = calculateCumulativeXPFromLevel(winnerCurrentLevel, 0);
-    
-    if (winnerCurrentLevelXP < winnerCumulativeXPForPreviousLevels) {
-      // Old format: convert to cumulative
-      winnerCurrentCumulativeXP = winnerCumulativeXPForPreviousLevels + winnerCurrentLevelXP;
-    } else {
-      // New format: already cumulative
-      winnerCurrentCumulativeXP = winnerCurrentLevelXP;
-    }
-    
-    // Add wager XP to cumulative total
-    const winnerNewCumulativeXP = winnerCurrentCumulativeXP + wagerXp;
-    
-    // Recalculate level from cumulative XP
-    const { level: winnerNewLevel } = calculateLevelFromCumulativeXP(winnerNewCumulativeXP);
-    
-    const winnerNewTotalPoints = (winnerStats.total_points || 0) + wagerXp;
-    const winnerNewMonthXP = (winnerStats.current_month_xp || 0) + wagerXp;
-    
-    console.log('\n--- WINNER (Gains XP) ---');
-    console.log('  Current Level:', winnerCurrentLevel, '| Current Cumulative XP:', winnerCurrentCumulativeXP);
-    console.log('  Wager XP Added:', wagerXp);
-    console.log('  New Level:', winnerNewLevel, '| New Cumulative XP:', winnerNewCumulativeXP);
-    console.log('  Monthly XP Updated:', winnerStats.current_month_xp, '→', winnerNewMonthXP);
-    
+    if (!winnerStats) throw new Error('Winner stats not found');
+    if (!loserStats) throw new Error('Loser stats not found');
+
+    const winnerNewGold = (winnerStats.gold || 0) + wagerGold;
+    const loserNewGold = Math.max(0, (loserStats.gold || 0) - wagerGold);
+
     const { error: winnerUpdateError } = await supabase
       .from('user_stats')
       .update({
-        level_xp: winnerNewCumulativeXP, // Store cumulative XP
-        level: winnerNewLevel,
-        total_points: winnerNewTotalPoints,
-        current_month_xp: winnerNewMonthXP, // Update monthly XP
-        challenges_won: (winnerStats.challenges_won || 0) + 1, // Increment challenges won
+        gold: winnerNewGold,
+        challenges_won: (winnerStats.challenges_won || 0) + 1,
       })
       .eq('user_id', winnerId);
-    
-    if (winnerUpdateError) {
-      console.error('ERROR: Failed to update winner stats:', winnerUpdateError);
-      throw winnerUpdateError;
-    }
-    
-    console.log('  ✓ Winner stats updated successfully');
 
-    if (!loserStats) {
-      console.error('ERROR: Loser stats not found for user:', loserId);
-      throw new Error('Loser stats not found');
-    }
-    
-    // Loser loses wager XP (but not below 0)
-    // level_xp is now cumulative (total XP from level 0)
-    const loserCurrentLevel = loserStats.level || 1;
-    const loserCurrentLevelXP = loserStats.level_xp || 0;
-    
-    // Check if level_xp is in old format (non-cumulative) or new format (cumulative)
-    let loserCurrentCumulativeXP: number;
-    const loserCumulativeXPForPreviousLevels = calculateCumulativeXPFromLevel(loserCurrentLevel, 0);
-    
-    if (loserCurrentLevelXP < loserCumulativeXPForPreviousLevels) {
-      // Old format: convert to cumulative
-      loserCurrentCumulativeXP = loserCumulativeXPForPreviousLevels + loserCurrentLevelXP;
-    } else {
-      // New format: already cumulative
-      loserCurrentCumulativeXP = loserCurrentLevelXP;
-    }
-    
-    // Subtract wager XP from cumulative total (but not below 0)
-    const loserNewCumulativeXP = Math.max(0, loserCurrentCumulativeXP - wagerXp);
-    
-    // Recalculate level from cumulative XP
-    const { level: loserNewLevel } = calculateLevelFromCumulativeXP(loserNewCumulativeXP);
-    
-    const loserNewTotalPoints = Math.max(0, (loserStats.total_points || 0) - wagerXp);
-    const loserNewMonthXP = Math.max(0, (loserStats.current_month_xp || 0) - wagerXp);
-    
-    console.log('\n--- LOSER (Loses XP) ---');
-    console.log('  Current Level:', loserCurrentLevel, '| Current Cumulative XP:', loserCurrentCumulativeXP);
-    console.log('  Wager XP Lost:', wagerXp);
-    console.log('  New Level:', Math.max(1, loserNewLevel), '| New Cumulative XP:', loserNewCumulativeXP);
-    console.log('  Monthly XP Updated:', loserStats.current_month_xp, '→', loserNewMonthXP);
-    
+    if (winnerUpdateError) throw winnerUpdateError;
+
     const { error: loserUpdateError } = await supabase
       .from('user_stats')
-      .update({
-        level_xp: loserNewCumulativeXP, // Store cumulative XP
-        level: Math.max(1, loserNewLevel),
-        total_points: loserNewTotalPoints,
-        current_month_xp: loserNewMonthXP, // Update monthly XP
-      })
+      .update({ gold: loserNewGold })
       .eq('user_id', loserId);
-    
-    if (loserUpdateError) {
-      console.error('ERROR: Failed to update loser stats:', loserUpdateError);
-      throw loserUpdateError;
-    }
-    
-    console.log('  ✓ Loser stats updated successfully');
-    
-    // Update challenge status to completed
+
+    if (loserUpdateError) throw loserUpdateError;
+
     const { error: challengeUpdateError } = await supabase
       .from('lift_off_challenges')
       .update({
@@ -631,14 +446,8 @@ async function completeChallenge(
         winner_id: winnerId,
       })
       .eq('id', challengeId);
-    
-    if (challengeUpdateError) {
-      console.error('ERROR: Failed to update challenge status:', challengeUpdateError);
-      throw challengeUpdateError;
-    }
-    
-    console.log('\n✓ Challenge marked as completed');
-    console.log('=====================================\n');
+
+    if (challengeUpdateError) throw challengeUpdateError;
   } catch (err) {
     console.error('Error completing challenge:', err);
     throw err;

@@ -5,7 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronLeft, TrendingUp } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { getMonthlyXPHistory } from '../../services/xpService';
 import { Colors } from '../../constants/colors';
@@ -16,26 +19,26 @@ interface MonthlyXP {
   total_xp: number;
 }
 
-export default function MonthlyXPHistoryScreen() {
+interface MonthlyXPHistoryScreenProps {
+  onBack: () => void;
+}
+
+export default function MonthlyXPHistoryScreen({ onBack }: MonthlyXPHistoryScreenProps) {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [history, setHistory] = useState<MonthlyXP[]>([]);
   const [sortOrder, setSortOrder] = useState<'high' | 'low'>('high');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      loadHistory();
-    }
+    if (user) loadHistory();
   }, [user, sortOrder]);
 
   const loadHistory = async () => {
     if (!user) return;
-
     setLoading(true);
-    const { data, error } = await getMonthlyXPHistory(user.id, sortOrder);
-    if (data) {
-      setHistory(data);
-    }
+    const { data } = await getMonthlyXPHistory(user.id, sortOrder);
+    if (data) setHistory(data);
     setLoading(false);
   };
 
@@ -45,68 +48,75 @@ export default function MonthlyXPHistoryScreen() {
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
+  const maxXP = history.length > 0 ? Math.max(...history.map(m => m.total_xp)) : 1;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>MONTHLY XP</Text>
-        <View style={styles.sortButtons}>
-          <TouchableOpacity
-            style={[styles.sortButton, sortOrder === 'high' && styles.sortButtonActive]}
-            onPress={() => setSortOrder('high')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.sortButtonText,
-                sortOrder === 'high' && styles.sortButtonTextActive,
-              ]}
-            >
-              HIGH
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.sortButton, sortOrder === 'low' && styles.sortButtonActive]}
-            onPress={() => setSortOrder('low')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.sortButtonText,
-                sortOrder === 'low' && styles.sortButtonTextActive,
-              ]}
-            >
-              LOW
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7}>
+          <ChevronLeft size={18} color={Colors.textSecondary} strokeWidth={2} />
+          <Text style={styles.backButtonLabel}>Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>MONTHLY XP</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        {loading ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>Loading...</Text>
-          </View>
-        ) : history.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>📊</Text>
-            <Text style={styles.emptyText}>No monthly XP history yet</Text>
-          </View>
-        ) : (
-          history.map((month, index) => (
-            <View key={month.id} style={styles.monthCard}>
-              <View style={styles.monthCardGlow} />
-              <View style={styles.rankBadge}>
-                <Text style={styles.rankNumber}>#{index + 1}</Text>
+      {/* Sort Tabs */}
+      <View style={styles.sortRow}>
+        <TouchableOpacity
+          style={[styles.sortTab, sortOrder === 'high' && styles.sortTabActive]}
+          onPress={() => setSortOrder('high')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.sortText, sortOrder === 'high' && styles.sortTextActive]}>
+            Highest
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sortTab, sortOrder === 'low' && styles.sortTabActive]}
+          onPress={() => setSortOrder('low')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.sortText, sortOrder === 'low' && styles.sortTextActive]}>
+            Lowest
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="small" color={Colors.primary} />
+        </View>
+      ) : history.length === 0 ? (
+        <View style={styles.centered}>
+          <TrendingUp size={32} color={Colors.textMuted} strokeWidth={1.5} />
+          <Text style={styles.emptyText}>No monthly XP history yet</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+          {history.map((month, index) => {
+            const barWidth = Math.max(8, (month.total_xp / maxXP) * 100);
+            return (
+              <View key={month.id} style={styles.card}>
+                <View style={styles.cardRow}>
+                  <View style={styles.rankCircle}>
+                    <Text style={styles.rankText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.monthName}>{formatMonth(month.month)}</Text>
+                    <View style={styles.barTrack}>
+                      <View style={[styles.barFill, { width: `${barWidth}%` }]} />
+                    </View>
+                  </View>
+                  <Text style={styles.xpValue}>{month.total_xp.toLocaleString()}</Text>
+                </View>
               </View>
-              <View style={styles.monthInfo}>
-                <Text style={styles.monthName}>{formatMonth(month.month).toUpperCase()}</Text>
-                <Text style={styles.monthXP}>{month.total_xp.toLocaleString()} XP</Text>
-              </View>
-              <View style={styles.monthCardBorder} />
-            </View>
-          ))
-        )}
-      </ScrollView>
+            );
+          })}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -114,148 +124,132 @@ export default function MonthlyXPHistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 16,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: Colors.backgroundSecondary,
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 2,
-    textShadowColor: Colors.primary,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  sortButtons: {
+  backButton: {
     flexDirection: 'row',
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 14,
-    padding: 4,
-    borderWidth: 2,
-    borderColor: Colors.border,
-  },
-  sortButton: {
-    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 4,
     paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 4,
   },
-  sortButtonActive: {
-    backgroundColor: Colors.secondary,
-    borderWidth: 1,
-    borderColor: Colors.accent1,
-  },
-  sortButtonText: {
+  backButtonLabel: {
+    fontSize: 16,
+    lineHeight: 20,
     color: Colors.textSecondary,
-    fontSize: 12,
+    fontWeight: '500',
+  },
+  headerTitle: {
+    fontSize: 14,
     fontWeight: '800',
+    color: Colors.textSecondary,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  sortButtonTextActive: {
-    color: Colors.textPrimary,
-    fontWeight: '900',
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyIcon: {
-    fontSize: 48,
+  headerSpacer: { width: 64 },
+
+  sortRow: {
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 16,
-    opacity: 0.5,
+  },
+  sortTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  sortTabActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  sortText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  sortTextActive: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textMuted,
+  },
+
+  list: { flex: 1 },
+  listContent: { gap: 8, paddingBottom: 32 },
+
+  card: {
+    backgroundColor: Colors.backgroundCard,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rankCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  rankText: {
+    fontSize: 13,
     fontWeight: '700',
     color: Colors.textSecondary,
   },
-  monthCard: {
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.xpGold,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: Colors.xpGold,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  monthCardGlow: {
-    position: 'absolute',
-    top: -20,
-    right: -20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: Colors.xpGold,
-    opacity: 0.2,
-  },
-  rankBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    borderWidth: 2,
-    borderColor: Colors.accent1,
-  },
-  rankNumber: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-  },
-  monthInfo: {
+  cardInfo: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 6,
   },
   monthName: {
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  barTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.backgroundSecondary,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+  },
+  xpValue: {
+    fontSize: 15,
     fontWeight: '800',
     color: Colors.textPrimary,
-    letterSpacing: 1,
-  },
-  monthXP: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: Colors.xpGold,
-    textShadowColor: Colors.xpGold,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  monthCardBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.textPrimary,
-    opacity: 0.1,
+    minWidth: 60,
+    textAlign: 'right',
   },
 });

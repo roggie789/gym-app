@@ -1,46 +1,56 @@
-// Game-inspired color palette - vibrant and energetic
+// Color palette matching the web design dark theme
 export const Colors = {
-  // Backgrounds
-  background: '#0F0B1E', // Deep dark purple/black
-  backgroundSecondary: '#1A1435', // Slightly lighter purple
-  backgroundCard: '#251F47', // Card background
+  // Backgrounds - Dark theme (from CSS dark mode HSL values)
+  background: '#0E0E11', // hsl(240 10% 6%)
+  backgroundSecondary: '#202027', // hsl(240 9% 14%)
+  backgroundCard: '#17171C', // hsl(240 10% 10%)
+  backgroundCardTransparent: '#17171C', // Same as card (solid)
   
-  // Primary Accents - Vibrant game colors
-  primary: '#FF6B35', // Vibrant orange-red
-  primaryDark: '#E55A2B',
-  primaryLight: '#FF8C5A',
+  // Primary Accents - Professional orange/amber
+  primary: '#F97316', // hsl(22 92% 54%)
+  primaryDark: '#EA580C',
+  primaryLight: '#FB923C',
+  primaryBorder: '#F97316', // Border color for primary buttons
   
   // Secondary Accents
-  secondary: '#4ECDC4', // Cyan/turquoise
-  secondaryDark: '#3BA99F',
-  secondaryLight: '#6EDDD5',
+  secondary: '#202027', // hsl(240 9% 14%)
+  secondaryDark: '#17171C', // hsl(240 10% 10%)
+  secondaryLight: '#33333D', // hsl(240 9% 22%)
+  secondaryBorder: '#33333D', // Border color for secondary buttons
   
   // Accent Colors
-  accent1: '#FFD93D', // Bright yellow/gold
-  accent2: '#6BCF7F', // Green
-  accent3: '#9B59B6', // Purple
-  accent4: '#3498DB', // Blue
+  accent1: '#F59E0B', // Amber/gold
+  accent2: '#10B981', // Green
+  accent3: '#8B5CF6', // Purple
+  accent4: '#3B82F6', // Blue
   
   // Status Colors
-  success: '#2ECC71', // Green
-  warning: '#F39C12', // Orange
-  danger: '#E74C3C', // Red
-  info: '#3498DB', // Blue
+  success: '#10B981', // Green
+  warning: '#F59E0B', // Amber
+  danger: '#EF4444', // Red
+  info: '#3B82F6', // Blue
   
-  // Text
-  textPrimary: '#FFFFFF',
-  textSecondary: '#B8B5C7',
-  textMuted: '#7A7489',
+  // Text (from CSS dark mode)
+  textPrimary: '#F3F5F7', // hsl(210 20% 96%)
+  textSecondary: '#9DA3AF', // hsl(220 10% 65%)
+  textMuted: '#71717A', // More muted
   
-  // Borders & Dividers
-  border: '#3D3559',
-  borderLight: '#2A2440',
-  divider: '#1F1A35',
+  // Borders & Dividers (from CSS dark mode)
+  border: '#2A2A32', // hsl(240 8% 18%)
+  borderLight: '#17171C', // hsl(240 10% 10%)
+  divider: '#17171C',
   
-  // Special Game Colors
-  xpGold: '#FFD700', // Gold for XP
-  levelPurple: '#9B59B6', // Purple for levels
-  streakFire: '#FF6B35', // Fire orange for streaks
-  prGreen: '#2ECC71', // Green for PRs
+  // Button outline color
+  buttonOutline: '#33333D', // hsl(240 9% 22%)
+  
+  // Special Game Colors (kept for functionality)
+  xpGold: '#F59E0B', // Amber for XP
+  levelPurple: '#8B5CF6', // Purple for levels
+  streakFire: '#F97316', // Orange for streaks
+  prGreen: '#10B981', // Green for PRs
+  
+  // Destructive colors
+  destructive: '#EF4444',
+  destructiveBorder: '#DC2626',
+  destructiveForeground: '#FAFAFA',
 };
-

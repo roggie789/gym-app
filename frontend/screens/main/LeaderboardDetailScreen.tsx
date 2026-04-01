@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
-  Alert,
+  Switch,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
 import { Colors } from '../../constants/colors';
 import { getGroupLeaderboard, getGlobalLeaderboard, LeaderboardEntry } from '../../services/leaderboardService';
 import {
@@ -24,6 +25,12 @@ import {
   GroupJoinRequest,
 } from '../../services/groupsService';
 import CreateChallengeModal from '../../components/CreateChallengeModal';
+import { MobileShell } from '../../components/MobileShell';
+import { Card, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { Avatar, AvatarFallback } from '../../components/ui/Avatar';
+import { Input } from '../../components/ui/Input';
 
 interface LeaderboardDetailScreenProps {
   groupId: string | 'global';
@@ -34,6 +41,7 @@ interface LeaderboardDetailScreenProps {
 
 export default function LeaderboardDetailScreen({ groupId, groupData, onBack, onViewProfile }: LeaderboardDetailScreenProps) {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
@@ -84,11 +92,11 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack, on
     setLoading(false);
 
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to approve request');
+      showAlert({ title: 'Error', message: error.message || 'Failed to approve request' });
       return;
     }
 
-    Alert.alert('Success', 'Request approved');
+    showAlert({ title: 'Success', message: 'Request approved' });
     const { data } = await getGroupJoinRequests(groupId);
     setPendingRequests(data || []);
     loadLeaderboard();
@@ -102,7 +110,7 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack, on
     setLoading(false);
 
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to reject request');
+      showAlert({ title: 'Error', message: error.message || 'Failed to reject request' });
       return;
     }
 
@@ -123,7 +131,7 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack, on
 
   const handleUpdateGroup = async () => {
     if (!groupId || groupId === 'global' || !editGroupName.trim()) {
-      Alert.alert('Error', 'Please enter a group name');
+      showAlert({ title: 'Error', message: 'Please enter a group name' });
       return;
     }
 
@@ -132,22 +140,22 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack, on
     setLoading(false);
 
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to update group');
+      showAlert({ title: 'Error', message: error.message || 'Failed to update group' });
       return;
     }
 
-    Alert.alert('Success', 'Group updated successfully!');
+    showAlert({ title: 'Success', message: 'Group updated successfully!' });
     setShowSettingsModal(false);
-    onBack(); // Go back to refresh the list
+    onBack();
   };
 
   const handleRemoveMember = async (memberId: string, memberName: string) => {
     if (!groupId || groupId === 'global') return;
 
-    Alert.alert(
-      'Remove Member',
-      `Are you sure you want to remove ${memberName} from this leaderboard?`,
-      [
+    showAlert({
+      title: 'Remove Member',
+      message: `Are you sure you want to remove ${memberName} from this clan?`,
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
@@ -158,27 +166,27 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack, on
             setLoading(false);
 
             if (error) {
-              Alert.alert('Error', error.message || 'Failed to remove member');
+              showAlert({ title: 'Error', message: error.message || 'Failed to remove member' });
               return;
             }
 
-            Alert.alert('Success', 'Member removed successfully');
+            showAlert({ title: 'Success', message: 'Member removed successfully' });
             const { data } = await getGroupMembers(groupId);
             setGroupMembers(data || []);
             loadLeaderboard();
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleDeleteGroup = async () => {
     if (!groupId || groupId === 'global') return;
 
-    Alert.alert(
-      'Delete Leaderboard',
-      'Are you sure you want to delete this leaderboard? This action cannot be undone.',
-      [
+    showAlert({
+      title: 'Delete Clan',
+      message: 'Are you sure you want to delete this clan? This action cannot be undone.',
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -189,154 +197,154 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack, on
             setLoading(false);
 
             if (error) {
-              Alert.alert('Error', error.message || 'Failed to delete group');
+              showAlert({ title: 'Error', message: error.message || 'Failed to delete group' });
               return;
             }
 
-            Alert.alert('Success', 'Leaderboard deleted successfully');
+            showAlert({ title: 'Success', message: 'Clan deleted successfully' });
             onBack();
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
-  const getRankIcon = (rank: number) => {
+  const getRankDisplay = (rank: number) => {
     if (rank === 1) return '🥇';
     if (rank === 2) return '🥈';
     if (rank === 3) return '🥉';
     return `#${rank}`;
   };
 
-  const getRankColor = (rank: number) => {
-    if (rank === 1) return Colors.xpGold;
-    if (rank === 2) return Colors.textSecondary;
-    if (rank === 3) return Colors.warning;
-    return Colors.textPrimary;
-  };
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.8}>
-          <Text style={styles.backButtonText}>← BACK</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{groupData?.name.toUpperCase() || 'GLOBAL'}</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {isOwner && !isGlobal && (
-        <View style={styles.ownerButtons}>
-          <TouchableOpacity
-            style={styles.requestsButton}
-            onPress={handleViewRequests}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.requestsButtonText}>VIEW JOIN REQUESTS</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={handleOpenSettings}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.settingsButtonText}>⚙ SETTINGS</Text>
-          </TouchableOpacity>
+    <MobileShell noTabBar>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Button variant="ghost" onPress={onBack} style={styles.backButton}>
+            <Text style={styles.backButtonIcon}>←</Text>
+            <Text style={styles.backButtonText}>Back</Text>
+          </Button>
+          <Text style={styles.title}>{groupData?.name || 'Global'}</Text>
+          <View style={styles.headerSpacer} />
         </View>
-      )}
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        {loading ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.loadingText}>Loading...</Text>
+        {isOwner && !isGlobal && (
+          <View style={styles.ownerButtons}>
+            <Button
+              variant="secondary"
+              onPress={handleViewRequests}
+              style={styles.ownerButton}
+            >
+              Requests
+            </Button>
+            <Button
+              variant="secondary"
+              onPress={handleOpenSettings}
+              style={styles.ownerButton}
+            >
+              Settings
+            </Button>
           </View>
-        ) : leaderboard.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🏆</Text>
-            <Text style={styles.emptyText}>No rankings yet</Text>
-            <Text style={styles.emptySubtext}>
-              {isGlobal
-                ? 'Start working out to appear on the leaderboard!'
-                : 'No members in this group yet'}
-            </Text>
-          </View>
-        ) : (
-          leaderboard.map((entry) => {
-            const isCurrentUser = entry.user_id === user?.id;
-            return (
-              <View
-                key={entry.user_id}
-                style={[
-                  styles.leaderboardCard,
-                  isCurrentUser && styles.leaderboardCardCurrent,
-                ]}
-              >
-                <View style={styles.rankBadge}>
-                  <Text style={[styles.rankText, { color: getRankColor(entry.rank) }]}>
-                    {getRankIcon(entry.rank)}
-                  </Text>
-                </View>
-                <View style={styles.userInfo}>
-                  <View style={styles.userHeader}>
-                    <Text style={styles.username}>
-                      {entry.username.toUpperCase()}
-                      {isCurrentUser && <Text style={styles.youLabel}> (YOU)</Text>}
-                    </Text>
-                    <View style={styles.headerRight}>
-                      <Text style={styles.points}>{entry.total_points.toLocaleString()} XP</Text>
-                      {!isCurrentUser && (
-                        <View style={styles.userActions}>
-                          {onViewProfile && (
-                            <TouchableOpacity
-                              style={styles.viewProfileButton}
-                              onPress={() => onViewProfile(entry.user_id, entry.username)}
-                              activeOpacity={0.8}
-                            >
-                              <Text style={styles.viewProfileButtonText}>👤</Text>
-                            </TouchableOpacity>
-                          )}
-                          <TouchableOpacity
-                            style={styles.challengeButton}
-                            onPress={() => {
-                              setSelectedUserId(entry.user_id);
-                              setSelectedUsername(entry.username);
-                              setShowChallengeModal(true);
-                            }}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.challengeButtonText}>⚔️</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                  <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>LEVEL</Text>
-                      <Text style={styles.statValue}>{entry.level}</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>STREAK</Text>
-                      <Text style={styles.statValue}>{entry.current_streak}</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>PRs</Text>
-                      <Text style={styles.statValue}>{entry.total_prs}</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>WORKOUTS</Text>
-                      <Text style={styles.statValue}>{entry.total_workouts}</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>WINS</Text>
-                      <Text style={styles.statValue}>{entry.challenges_won || 0}</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            );
-          })
         )}
-      </ScrollView>
+
+        <ScrollView 
+          style={styles.content} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {loading ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.loadingText}>Loading...</Text>
+            </View>
+          ) : leaderboard.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>🏆</Text>
+              <Text style={styles.emptyText}>No rankings yet</Text>
+              <Text style={styles.emptySubtext}>
+                {isGlobal
+                  ? 'Start working out to appear on the rankings!'
+                  : 'No members in this group yet'}
+              </Text>
+            </View>
+          ) : (
+            leaderboard.map((entry, index) => {
+              const isCurrentUser = entry.user_id === user?.id;
+              const isTopThree = entry.rank <= 3;
+              
+              return (
+                <Card
+                  key={entry.user_id}
+                  style={[
+                    styles.leaderboardCard,
+                    isCurrentUser && styles.leaderboardCardCurrent,
+                  ]}
+                >
+                  <CardContent style={styles.cardContent}>
+                    <View style={styles.cardRow}>
+                      <View style={styles.rankSection}>
+                        <Text style={[
+                          styles.rankText,
+                          isTopThree && styles.rankTextTopThree,
+                        ]}>
+                          {getRankDisplay(entry.rank)}
+                        </Text>
+                      </View>
+                      <View style={styles.userInfo}>
+                        <Avatar style={styles.avatar}>
+                          <AvatarFallback>
+                            {entry.username.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <View style={styles.userDetails}>
+                          <Text style={styles.username}>
+                            {entry.username}
+                            {isCurrentUser && (
+                              <Text style={styles.youLabel}> • You</Text>
+                            )}
+                          </Text>
+                          <Text style={styles.userMetaText}>Level {entry.level}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.rightSection}>
+                        <View style={styles.pointsSection}>
+                          <Text style={styles.points}>{entry.total_points.toLocaleString()}</Text>
+                          <Text style={styles.pointsLabel}>XP</Text>
+                        </View>
+                        <View style={styles.actions}>
+                          {!isCurrentUser && (
+                            <>
+                              {onViewProfile && (
+                                <Button
+                                  variant="ghost"
+                                  onPress={() => onViewProfile(entry.user_id, entry.username)}
+                                  style={styles.actionButton}
+                                >
+                                  <Text style={styles.actionIcon}>👤</Text>
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                onPress={() => {
+                                  setSelectedUserId(entry.user_id);
+                                  setSelectedUsername(entry.username);
+                                  setShowChallengeModal(true);
+                                }}
+                                style={styles.actionButton}
+                              >
+                                <Text style={styles.actionIcon}>⚔️</Text>
+                              </Button>
+                            </>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
 
       {/* Join Requests Modal */}
       <Modal
@@ -346,55 +354,59 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack, on
         onRequestClose={() => setShowRequestsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>JOIN REQUESTS</Text>
-            <ScrollView 
-              style={styles.requestsList}
-              contentContainerStyle={styles.requestsListContent}
-            >
-              {pendingRequests.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyText}>No pending requests</Text>
-                </View>
-              ) : (
-                pendingRequests.map((request) => (
-                  <View key={request.id} style={styles.requestCard}>
-                    <View style={styles.requestInfo}>
-                      <Text style={styles.requestUsername}>
-                        {request.username?.toUpperCase() || 'USER'}
-                      </Text>
-                      <Text style={styles.requestDate}>
-                        {new Date(request.requested_at).toLocaleDateString()}
-                      </Text>
-                    </View>
-                    <View style={styles.requestButtons}>
-                      <TouchableOpacity
-                        style={[styles.requestButton, styles.requestButtonApprove]}
-                        onPress={() => handleApproveRequest(request.id, request.user_id)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.requestButtonText}>✓</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.requestButton, styles.requestButtonReject, { marginLeft: 8 }]}
-                        onPress={() => handleRejectRequest(request.id)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.requestButtonText}>✕</Text>
-                      </TouchableOpacity>
-                    </View>
+          <Card style={styles.modalContent}>
+            <CardContent style={styles.modalCardContent}>
+              <Text style={styles.modalTitle}>Join Requests</Text>
+              <ScrollView 
+                style={styles.requestsList}
+                contentContainerStyle={styles.requestsListContent}
+              >
+                {pendingRequests.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyText}>No pending requests</Text>
                   </View>
-                ))
-              )}
-            </ScrollView>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.modalButtonCancel]}
-              onPress={() => setShowRequestsModal(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalButtonTextCancel}>CLOSE</Text>
-            </TouchableOpacity>
-          </View>
+                ) : (
+                  pendingRequests.map((request) => (
+                    <Card key={request.id} style={styles.requestCard}>
+                      <CardContent style={styles.requestCardContent}>
+                        <View style={styles.requestInfo}>
+                          <Text style={styles.requestUsername}>
+                            {request.username || 'User'}
+                          </Text>
+                          <Text style={styles.requestDate}>
+                            {new Date(request.requested_at).toLocaleDateString()}
+                          </Text>
+                        </View>
+                        <View style={styles.requestButtons}>
+                          <Button
+                            variant="secondary"
+                            onPress={() => handleApproveRequest(request.id, request.user_id)}
+                            style={styles.requestButton}
+                          >
+                            <Text>✓</Text>
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            onPress={() => handleRejectRequest(request.id)}
+                            style={styles.requestButton}
+                          >
+                            <Text>✕</Text>
+                          </Button>
+                        </View>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </ScrollView>
+              <Button
+                variant="secondary"
+                onPress={() => setShowRequestsModal(false)}
+                style={styles.modalButton}
+              >
+                Close
+              </Button>
+            </CardContent>
+          </Card>
         </View>
       </Modal>
 
@@ -406,87 +418,97 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack, on
         onRequestClose={() => setShowSettingsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>LEADERBOARD SETTINGS</Text>
-            
-            <ScrollView style={styles.settingsContent}>
-              <View style={styles.settingsSection}>
-                <Text style={styles.settingsSectionTitle}>EDIT DETAILS</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Leaderboard Name"
-                  placeholderTextColor={Colors.textMuted}
-                  value={editGroupName}
-                  onChangeText={setEditGroupName}
-                />
-                <TextInput
-                  style={[styles.modalInput, styles.modalTextArea]}
-                  placeholder="Description (optional)"
-                  placeholderTextColor={Colors.textMuted}
-                  value={editGroupDescription}
-                  onChangeText={setEditGroupDescription}
-                  multiline
-                  numberOfLines={3}
-                />
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalButtonConfirm]}
-                  onPress={handleUpdateGroup}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.modalButtonText, styles.modalButtonTextConfirm]}>SAVE CHANGES</Text>
-                </TouchableOpacity>
-              </View>
+          <Card style={styles.modalContent}>
+            <CardContent style={styles.modalCardContent}>
+              <Text style={styles.modalTitle}>Clan Settings</Text>
+              
+              <ScrollView style={styles.settingsContent}>
+                <View style={styles.settingsSection}>
+                  <Text style={styles.settingsSectionTitle}>Edit Details</Text>
+                  <View style={styles.modalInputGroup}>
+                    <Text style={styles.modalLabel}>Name</Text>
+                    <Input
+                      placeholder="Clan Name"
+                      value={editGroupName}
+                      onChangeText={setEditGroupName}
+                      style={styles.modalInput}
+                    />
+                  </View>
+                  <View style={styles.modalInputGroup}>
+                    <Text style={styles.modalLabel}>Description (optional)</Text>
+                    <TextInput
+                      style={[styles.modalInput, styles.modalTextArea]}
+                      placeholder="Description"
+                      placeholderTextColor={Colors.textMuted}
+                      value={editGroupDescription}
+                      onChangeText={setEditGroupDescription}
+                      multiline
+                      numberOfLines={3}
+                    />
+                  </View>
+                  <Button
+                    onPress={handleUpdateGroup}
+                    style={styles.modalButton}
+                  >
+                    Save Changes
+                  </Button>
+                </View>
 
-              <View style={styles.settingsSection}>
-                <Text style={styles.settingsSectionTitle}>MEMBERS ({groupMembers.length})</Text>
-                <ScrollView style={styles.membersList} nestedScrollEnabled>
-                  {groupMembers.map((member) => {
-                    const isOwnerMember = member.user_id === groupData?.created_by;
-                    return (
-                      <View key={member.id} style={styles.memberCard}>
-                        <View style={styles.memberInfo}>
-                          <Text style={styles.memberName}>
-                            {member.username?.toUpperCase() || 'USER'}
-                          </Text>
-                          {isOwnerMember && (
-                            <Text style={styles.ownerBadge}>OWNER</Text>
-                          )}
-                        </View>
-                        {!isOwnerMember && (
-                          <TouchableOpacity
-                            style={styles.removeMemberButton}
-                            onPress={() => handleRemoveMember(member.user_id, member.username || 'User')}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.removeMemberButtonText}>✕</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+                <View style={styles.settingsSection}>
+                  <Text style={styles.settingsSectionTitle}>Members ({groupMembers.length})</Text>
+                  <ScrollView style={styles.membersList} nestedScrollEnabled>
+                    {groupMembers.map((member) => {
+                      const isOwnerMember = member.user_id === groupData?.created_by;
+                      return (
+                        <Card key={member.id} style={styles.memberCard}>
+                          <CardContent style={styles.memberCardContent}>
+                            <View style={styles.memberInfo}>
+                              <Text style={styles.memberName}>
+                                {member.username || 'User'}
+                              </Text>
+                              {isOwnerMember && (
+                                <Badge variant="secondary" style={styles.ownerBadge}>
+                                  Owner
+                                </Badge>
+                              )}
+                            </View>
+                            {!isOwnerMember && (
+                              <Button
+                                variant="destructive"
+                                onPress={() => handleRemoveMember(member.user_id, member.username || 'User')}
+                                style={styles.removeMemberButton}
+                              >
+                                <Text>✕</Text>
+                              </Button>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
 
-              <View style={styles.settingsSection}>
-                <Text style={styles.settingsSectionTitle}>DANGER ZONE</Text>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.deleteButton]}
-                  onPress={handleDeleteGroup}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.deleteButtonText}>DELETE LEADERBOARD</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+                <View style={styles.settingsSection}>
+                  <Text style={styles.settingsSectionTitle}>Danger Zone</Text>
+                  <Button
+                    variant="destructive"
+                    onPress={handleDeleteGroup}
+                    style={styles.modalButton}
+                  >
+                    Delete Clan
+                  </Button>
+                </View>
+              </ScrollView>
 
-            <TouchableOpacity
-              style={[styles.modalButton, styles.modalButtonCancel]}
-              onPress={() => setShowSettingsModal(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalButtonTextCancel}>CLOSE</Text>
-            </TouchableOpacity>
-          </View>
+              <Button
+                variant="secondary"
+                onPress={() => setShowSettingsModal(false)}
+                style={styles.modalButton}
+              >
+                Close
+              </Button>
+            </CardContent>
+          </Card>
         </View>
       </Modal>
 
@@ -503,312 +525,245 @@ export default function LeaderboardDetailScreen({ groupId, groupData, onBack, on
           // Challenge created successfully
         }}
       />
-    </View>
+    </MobileShell>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: Colors.backgroundSecondary,
-    borderBottomWidth: 2,
-    borderBottomColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 16,
   },
   backButton: {
-    paddingVertical: 8,
+    height: 40,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: Colors.backgroundCard,
-    borderWidth: 2,
-    borderColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  backButtonIcon: {
+    fontSize: 16,
+    color: Colors.textSecondary,
   },
   backButtonText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 1,
+    fontSize: 16,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
   title: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 2,
-    textShadowColor: Colors.primary,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-    flex: 1,
-    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   headerSpacer: {
     width: 80,
   },
   ownerButtons: {
     flexDirection: 'row',
-    margin: 16,
-    marginBottom: 12,
+    gap: 12,
+    marginBottom: 16,
   },
-  requestsButton: {
+  ownerButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: Colors.secondary,
-    borderWidth: 2,
-    borderColor: Colors.accent1,
-    alignItems: 'center',
-  },
-  requestsButtonText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 1,
-  },
-  settingsButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
-    borderWidth: 2,
-    borderColor: Colors.accent1,
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  settingsButtonText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 1,
+    height: 40,
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingBottom: 20,
   },
   leaderboardCard: {
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 20,
-    padding: 20,
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.secondary,
-    shadowColor: Colors.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.backgroundCardTransparent,
   },
   leaderboardCardCurrent: {
-    borderColor: Colors.accent1,
-    backgroundColor: Colors.backgroundSecondary,
-  },
-  rankBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.backgroundSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    borderWidth: 2,
     borderColor: Colors.primary,
   },
+  cardContent: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rankSection: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   rankText: {
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
+  rankTextTopThree: {
+    fontSize: 18,
+    lineHeight: 20,
   },
   userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     flex: 1,
+    minWidth: 0,
   },
-  userHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  avatar: {
+    width: 36,
+    height: 36,
   },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  userActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  viewProfileButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.secondary,
-    alignItems: 'center',
+  userDetails: {
+    flex: 1,
+    minWidth: 0,
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.accent1,
-  },
-  viewProfileButtonText: {
-    fontSize: 18,
-  },
-  challengeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.accent1,
-    minWidth: 40,
-    minHeight: 40,
-  },
-  challengeButtonText: {
-    fontSize: 16,
   },
   username: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '600',
     color: Colors.textPrimary,
-    letterSpacing: 1,
-    flex: 1,
+    letterSpacing: -0.3,
+    lineHeight: 20,
   },
   youLabel: {
-    color: Colors.accent1,
-    fontSize: 14,
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '400',
+  },
+  userMetaText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '400',
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  rightSection: {
+    alignItems: 'flex-end',
+    minWidth: 80,
+  },
+  pointsSection: {
+    alignItems: 'flex-end',
   },
   points: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: Colors.xpGold,
-    textShadowColor: Colors.xpGold,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    letterSpacing: -0.5,
+    lineHeight: 20,
   },
-  statsRow: {
+  pointsLabel: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+    marginTop: 2,
+    lineHeight: 12,
+  },
+  actions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statItem: {
+    gap: 6,
+    marginTop: 6,
+    minHeight: 28,
     alignItems: 'center',
   },
-  statLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: Colors.textSecondary,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 4,
+  actionButton: {
+    width: 28,
+    height: 28,
+    padding: 0,
+    minHeight: 28,
+    minWidth: 28,
   },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: Colors.textPrimary,
+  actionIcon: {
+    fontSize: 14,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: 40,
   },
   emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+    fontSize: 40,
+    marginBottom: 12,
     opacity: 0.5,
   },
   emptyText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     color: Colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   emptySubtext: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.textMuted,
-    fontWeight: '600',
     textAlign: 'center',
+    lineHeight: 18,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.textSecondary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 24,
-    padding: 24,
-    width: '90%',
+    width: '100%',
     maxWidth: 400,
-    borderWidth: 3,
-    borderColor: Colors.primary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.backgroundCardTransparent,
+  },
+  modalCardContent: {
+    padding: 20,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '800',
     color: Colors.textPrimary,
-    letterSpacing: 2,
-    marginBottom: 20,
-    textAlign: 'center',
+    letterSpacing: -0.5,
+    marginBottom: 16,
+  },
+  modalInputGroup: {
+    marginBottom: 12,
+  },
+  modalLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textPrimary,
+    marginBottom: 6,
   },
   modalInput: {
+    height: 40,
     backgroundColor: Colors.backgroundSecondary,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: Colors.textPrimary,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    marginBottom: 16,
   },
   modalTextArea: {
     height: 80,
     textAlignVertical: 'top',
+    paddingTop: 10,
+    backgroundColor: Colors.backgroundSecondary,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
+    fontSize: 14,
+    color: Colors.textPrimary,
   },
   modalButton: {
-    width: '100%',
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    minHeight: 40,
-  },
-  modalButtonCancel: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.accent1,
-  },
-  modalButtonConfirm: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.accent1,
-  },
-  modalButtonText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: Colors.textSecondary,
-    letterSpacing: 1,
-  },
-  modalButtonTextCancel: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  modalButtonTextConfirm: {
-    color: Colors.textPrimary,
+    height: 44,
+    marginTop: 8,
   },
   requestsList: {
     maxHeight: 400,
@@ -818,66 +773,51 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   requestCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: Colors.backgroundSecondary,
-    borderRadius: 12,
     marginBottom: 12,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: Colors.border,
+  },
+  requestCardContent: {
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   requestInfo: {
     flex: 1,
   },
   requestUsername: {
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '600',
     color: Colors.textPrimary,
-    letterSpacing: 1,
     marginBottom: 4,
   },
   requestDate: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: Colors.textSecondary,
   },
   requestButtons: {
     flexDirection: 'row',
+    gap: 8,
   },
   requestButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
-  requestButtonApprove: {
-    backgroundColor: Colors.success,
-    borderColor: Colors.accent1,
-  },
-  requestButtonReject: {
-    backgroundColor: Colors.danger,
-    borderColor: Colors.accent1,
-  },
-  requestButtonText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.textPrimary,
+    width: 36,
+    height: 36,
+    minHeight: 36,
+    padding: 0,
   },
   settingsContent: {
     maxHeight: 500,
     marginBottom: 16,
   },
   settingsSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   settingsSectionTitle: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: Colors.accent1,
-    letterSpacing: 1.5,
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
     marginBottom: 12,
     textTransform: 'uppercase',
   },
@@ -885,63 +825,34 @@ const styles = StyleSheet.create({
     maxHeight: 200,
   },
   memberCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: Colors.backgroundSecondary,
-    borderRadius: 10,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  memberInfo: {
-    flex: 1,
+  memberCardContent: {
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  memberInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
   },
   memberName: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '600',
     color: Colors.textPrimary,
-    letterSpacing: 0.5,
-    marginRight: 8,
   },
   ownerBadge: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: Colors.accent1,
-    letterSpacing: 1,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    alignSelf: 'flex-start',
   },
   removeMemberButton: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.accent1,
-  },
-  removeMemberButtonText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-  },
-  deleteButton: {
-    backgroundColor: Colors.danger,
-    borderColor: Colors.accent1,
-  },
-  deleteButtonText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+    minHeight: 32,
+    padding: 0,
   },
 });
-

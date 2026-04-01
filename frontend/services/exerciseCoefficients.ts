@@ -1,0 +1,297 @@
+/**
+ * Exercise multiplier coefficients for XP calculation.
+ * Higher values reward more demanding / technically complex exercises.
+ * Keys are normalized to lowercase for matching.
+ */
+const COEFFICIENTS: Record<string, number> = {
+  // ─── CHEST ──────────────────────────────────────────────
+  'barbell flat bench press': 1.00,
+  'barbell incline bench press': 1.07,
+  'barbell decline bench press': 0.98,
+  'close-grip bench press': 1.02,
+  'close grip bench press': 1.02,
+  'bench press': 1.00,
+  'flat bench press': 1.00,
+  'incline bench press': 1.07,
+  'decline bench press': 0.98,
+  'dumbbell flat press': 1.08,
+  'dumbbell incline press': 1.10,
+  'dumbbell decline press': 1.05,
+  'dumbbell chest press': 1.08,
+  'push-up': 1.00,
+  'push-ups': 1.00,
+  'push up': 1.00,
+  'push ups': 1.00,
+  'weighted push-up': 1.05,
+  'weighted push up': 1.05,
+  'dips (chest bias)': 1.05,
+  'chest dips': 1.05,
+  'weighted dips': 1.10,
+  'ring dips': 1.12,
+  'machine chest press': 0.92,
+  'plate-loaded chest press': 0.95,
+  'plate loaded chest press': 0.95,
+  'smith machine bench press': 0.93,
+  'pec deck': 0.88,
+  'cable chest fly': 0.88,
+  'cable fly': 0.88,
+  'dumbbell flyes': 0.88,
+  'dumbbell fly': 0.88,
+  'chest fly': 0.88,
+
+  // ─── SHOULDERS ──────────────────────────────────────────
+  'barbell overhead press (standing)': 1.05,
+  'barbell overhead press (seated)': 1.03,
+  'overhead press': 1.05,
+  'barbell overhead press': 1.05,
+  'ohp': 1.05,
+  'military press': 1.05,
+  'push press': 1.08,
+  'dumbbell shoulder press (seated)': 1.10,
+  'dumbbell shoulder press (standing)': 1.12,
+  'dumbbell shoulder press': 1.10,
+  'shoulder press': 1.10,
+  'arnold press': 1.10,
+  'single-arm dumbbell press': 1.12,
+  'single arm dumbbell press': 1.12,
+  'single-arm landmine press': 1.10,
+  'single arm landmine press': 1.10,
+  'landmine press': 1.10,
+  'pike push-up': 1.08,
+  'pike push up': 1.08,
+  'handstand push-up (wall)': 1.15,
+  'handstand push-up': 1.15,
+  'handstand push up': 1.15,
+  'strict handstand push-up': 1.18,
+  'strict handstand push up': 1.18,
+  'dumbbell lateral raise': 0.85,
+  'lateral raise': 0.85,
+  'cable lateral raise': 0.88,
+  'front raise': 0.85,
+  'rear delt machine': 0.88,
+  'rear delt fly': 0.88,
+  'reverse fly': 0.88,
+  'machine shoulder press': 0.90,
+  'smith machine ohp': 0.92,
+  'smith machine overhead press': 0.92,
+  'face pull': 0.88,
+
+  // ─── TRICEPS ────────────────────────────────────────────
+  'weighted dips (triceps bias)': 1.10,
+  'tricep dips': 1.05,
+  'tricep dip': 1.05,
+  'dips': 1.05,
+  'skull crushers (ez bar)': 0.90,
+  'skull crushers': 0.90,
+  'skull crusher': 0.90,
+  'dumbbell skull crushers': 0.92,
+  'overhead dumbbell extension': 0.90,
+  'single-arm overhead extension': 0.95,
+  'single arm overhead extension': 0.95,
+  'triceps pushdown': 0.88,
+  'tricep pushdown': 0.88,
+  'tricep extension': 0.88,
+  'rope pushdown': 0.88,
+  'straight bar pushdown': 0.88,
+  'overhead cable extension': 0.90,
+  'machine dip': 0.92,
+
+  // ─── BACK ───────────────────────────────────────────────
+  'barbell deadlift': 1.05,
+  'deadlift': 1.05,
+  'conventional deadlift': 1.05,
+  'sumo deadlift': 1.03,
+  'barbell bent over row': 1.05,
+  'bent over row': 1.05,
+  'barbell row': 1.05,
+  'pendlay row': 1.07,
+  't-bar row': 1.03,
+  't bar row': 1.03,
+  'pull-up': 1.05,
+  'pull-ups': 1.05,
+  'pull up': 1.05,
+  'pull ups': 1.05,
+  'chin-up': 1.05,
+  'chin-ups': 1.05,
+  'chin up': 1.05,
+  'neutral grip pull-up': 1.07,
+  'neutral grip pull up': 1.07,
+  'weighted pull-up': 1.12,
+  'weighted pull up': 1.12,
+  'weighted chin-up': 1.12,
+  'weighted chin up': 1.12,
+  'chest-to-bar pull-up': 1.10,
+  'chest to bar pull up': 1.10,
+  'muscle-up': 1.18,
+  'muscle up': 1.18,
+  'single arm dumbbell row': 1.10,
+  'dumbbell row': 1.10,
+  'one arm dumbbell row': 1.10,
+  'chest supported dumbbell row': 1.03,
+  'incline bench dumbbell row': 1.05,
+  'renegade row': 1.15,
+  'seated cable row': 0.95,
+  'cable row': 0.95,
+  'close grip cable row': 0.95,
+  'wide grip cable row': 0.95,
+  'plate loaded row': 0.97,
+  'machine row': 0.92,
+  'chest supported machine row': 0.93,
+  'straight arm pulldown': 0.90,
+  'lat prayer': 0.90,
+  'cable pullover': 0.90,
+  'lat pulldown': 0.95,
+  'wide grip lat pulldown': 0.95,
+  'close grip lat pulldown': 0.97,
+  'single arm lat pulldown': 1.02,
+
+  // ─── TRAPS ──────────────────────────────────────────────
+  'barbell shrug': 1.00,
+  'dumbbell shrug': 1.05,
+  'shrugs': 1.00,
+  'behind-the-back barbell shrug': 1.08,
+  'behind the back barbell shrug': 1.08,
+  "farmer's carry": 1.10,
+  'farmer carry': 1.10,
+  'farmers carry': 1.10,
+  "farmer's walk": 1.10,
+  'overhead carry': 1.08,
+  'machine shrug': 0.92,
+  'cable upright row': 0.95,
+  'upright row': 0.95,
+
+  // ─── BICEPS ─────────────────────────────────────────────
+  'barbell curl': 1.00,
+  'ez bar curl': 1.00,
+  'dumbbell curl': 1.02,
+  'alternating dumbbell curl': 1.05,
+  'standing dumbbell curl': 1.05,
+  'incline dumbbell curl': 1.08,
+  'spider curl': 1.05,
+  'drag curl': 1.03,
+  'zottman curl': 1.07,
+  'preacher curl (ez bar)': 0.95,
+  'preacher curl': 0.95,
+  'machine preacher curl': 0.92,
+  'cable curl': 0.92,
+  'rope cable curl': 0.92,
+  'bayesian cable curl': 0.95,
+  'chin-up (bicep focus)': 1.07,
+  'ring chin-up': 1.15,
+  'ring chin up': 1.15,
+  'hammer curl': 1.02,
+  'concentration curl': 1.00,
+
+  // ─── LEGS ───────────────────────────────────────────────
+  'back squat': 1.00,
+  'squat': 1.00,
+  'barbell squat': 1.00,
+  'front squat': 1.05,
+  'hack squat (barbell)': 0.98,
+  'hack squat': 0.93,
+  'romanian deadlift (barbell)': 1.03,
+  'romanian deadlift': 1.03,
+  'rdl': 1.03,
+  'goblet squat': 1.05,
+  'bulgarian split squat': 1.10,
+  'dumbbell step-up': 1.08,
+  'step up': 1.08,
+  'step-up': 1.08,
+  'dumbbell romanian deadlift': 1.03,
+  'single-leg romanian deadlift': 1.12,
+  'single leg romanian deadlift': 1.12,
+  'single leg rdl': 1.12,
+  'bodyweight squat': 0.95,
+  'air squat': 0.95,
+  'jump squat': 1.00,
+  'pistol squat': 1.15,
+  'step-ups (bodyweight)': 0.98,
+  'single-leg glute bridge': 1.05,
+  'single leg glute bridge': 1.05,
+  'glute bridge': 1.00,
+  'leg press': 0.95,
+  'smith machine squat': 0.92,
+  'hack machine squat': 0.93,
+  'seated leg curl': 0.88,
+  'lying leg curl': 0.88,
+  'leg curl': 0.88,
+  'leg extension': 0.88,
+  'plate-loaded leg press': 0.95,
+  'bulgarian split squat (weighted)': 1.12,
+  'single-leg press': 1.05,
+  'single leg press': 1.05,
+  'walking lunge (weighted)': 1.10,
+  'walking lunge': 1.10,
+  'lunges': 1.05,
+  'lunge': 1.05,
+  'step-ups (weighted)': 1.08,
+  'hip thrust': 1.05,
+  'barbell hip thrust': 1.05,
+  'single-leg hip thrust': 1.10,
+  'single leg hip thrust': 1.10,
+  'glute ham raise': 1.12,
+  'good morning (barbell)': 1.03,
+  'good morning': 1.03,
+  'good mornings': 1.03,
+
+  // ─── CALVES ─────────────────────────────────────────────
+  'standing calf raise (bodyweight)': 0.95,
+  'standing calf raise (weighted)': 1.05,
+  'standing calf raise': 1.05,
+  'barbell standing calf raise': 1.08,
+  'calf raise': 1.00,
+  'seated calf raise': 0.92,
+  'single-leg seated calf raise': 1.00,
+  'single leg seated calf raise': 1.00,
+  'donkey calf raise': 1.05,
+
+  // ─── CORE ───────────────────────────────────────────────
+  'plank': 0.80,
+  'russian twist': 0.82,
+  'leg raise': 0.85,
+  'hanging leg raise': 0.92,
+  'cable crunch': 0.88,
+  'ab wheel rollout': 0.90,
+  'ab wheel': 0.90,
+  'sit-up': 0.78,
+  'sit up': 0.78,
+  'crunch': 0.78,
+  'mountain climbers': 0.80,
+  'dead bug': 0.80,
+  'woodchop': 0.85,
+  'pallof press': 0.88,
+};
+
+const DEFAULT_COEFFICIENT = 1.00;
+
+/**
+ * Look up the exercise multiplier for a given exercise name.
+ * Uses exact match first, then falls back to substring/fuzzy matching.
+ */
+export function getExerciseCoefficient(exerciseName: string): number {
+  const normalized = exerciseName.toLowerCase().trim();
+
+  // Exact match
+  if (COEFFICIENTS[normalized] !== undefined) {
+    return COEFFICIENTS[normalized];
+  }
+
+  // Try matching with common variations stripped
+  const stripped = normalized
+    .replace(/\(.*?\)/g, '') // remove parenthetical notes
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (COEFFICIENTS[stripped] !== undefined) {
+    return COEFFICIENTS[stripped];
+  }
+
+  // Substring match: if any key contains the exercise name or vice versa
+  for (const [key, value] of Object.entries(COEFFICIENTS)) {
+    if (key.includes(stripped) || stripped.includes(key)) {
+      return value;
+    }
+  }
+
+  return DEFAULT_COEFFICIENT;
+}

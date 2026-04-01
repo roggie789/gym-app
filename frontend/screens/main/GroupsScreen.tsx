@@ -7,9 +7,12 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
 import { Colors } from '../../constants/colors';
 import {
   createGroup,
@@ -26,6 +29,8 @@ import { searchUsers, UserProfile } from '../../services/friendsService';
 
 export default function GroupsScreen() {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
+  const insets = useSafeAreaInsets();
   const [groups, setGroups] = useState<Group[]>([]);
   const [invitations, setInvitations] = useState<GroupInvitation[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -62,15 +67,15 @@ export default function GroupsScreen() {
 
   const handleCreateGroup = async () => {
     if (!user || !groupName.trim()) {
-      Alert.alert('Error', 'Please enter a group name');
+      showAlert({ title: 'Error', message: 'Please enter a group name' });
       return;
     }
 
     const { error } = await createGroup(groupName.trim(), groupDescription.trim(), user.id);
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to create group');
+      showAlert({ title: 'Error', message: error.message || 'Failed to create group' });
     } else {
-      Alert.alert('Success', 'Group created!');
+      showAlert({ title: 'Success', message: 'Group created!' });
       setShowCreateModal(false);
       setGroupName('');
       setGroupDescription('');
@@ -95,9 +100,9 @@ export default function GroupsScreen() {
 
     const { error } = await inviteToGroup(selectedGroup.id, userId, user.id);
     if (error) {
-      Alert.alert('Error', error.message || 'Failed to invite user');
+      showAlert({ title: 'Error', message: error.message || 'Failed to invite user' });
     } else {
-      Alert.alert('Success', 'Invitation sent!');
+      showAlert({ title: 'Success', message: 'Invitation sent!' });
       setShowInviteModal(false);
       setSearchQuery('');
       setSearchResults([]);
@@ -109,7 +114,7 @@ export default function GroupsScreen() {
 
     const { error } = await acceptGroupInvitation(invitationId, user.id);
     if (error) {
-      Alert.alert('Error', 'Failed to accept invitation');
+      showAlert({ title: 'Error', message: 'Failed to accept invitation' });
     } else {
       loadGroups();
       loadInvitations();
@@ -119,22 +124,26 @@ export default function GroupsScreen() {
   const handleLeaveGroup = async (groupId: string) => {
     if (!user) return;
 
-    Alert.alert('Leave Group', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: async () => {
-          await leaveGroup(groupId, user.id);
-          loadGroups();
+    showAlert({
+      title: 'Leave Group',
+      message: 'Are you sure?',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            await leaveGroup(groupId, user.id);
+            loadGroups();
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>GROUPS</Text>
         <TouchableOpacity
           style={styles.createButton}
@@ -219,7 +228,7 @@ export default function GroupsScreen() {
         transparent={true}
         onRequestClose={() => setShowCreateModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>CREATE GROUP</Text>
@@ -276,7 +285,7 @@ export default function GroupsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Invite User Modal */}
@@ -286,7 +295,7 @@ export default function GroupsScreen() {
         transparent={true}
         onRequestClose={() => setShowInviteModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>INVITE TO GROUP</Text>
@@ -339,7 +348,7 @@ export default function GroupsScreen() {
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -348,26 +357,23 @@ export default function GroupsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 60,
     backgroundColor: Colors.backgroundSecondary,
     borderBottomWidth: 2,
     borderBottomColor: Colors.primary,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    letterSpacing: 2,
-    textShadowColor: Colors.primary,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   createButton: {
     backgroundColor: Colors.primary,

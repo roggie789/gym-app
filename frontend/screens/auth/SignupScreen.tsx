@@ -5,10 +5,10 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types/navigation';
@@ -21,16 +21,17 @@ export default function SignupScreen() {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
+  const { showAlert } = useAlert();
   const navigation = useNavigation<SignupScreenNavigationProp>();
 
   const handleSignup = async () => {
     if (!email || !password || !username) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert({ title: 'Error', message: 'Please fill in all fields' });
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      showAlert({ title: 'Error', message: 'Password must be at least 6 characters' });
       return;
     }
 
@@ -39,9 +40,9 @@ export default function SignupScreen() {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Signup Failed', error.message);
+      showAlert({ title: 'Signup Failed', message: error.message });
     } else {
-      Alert.alert('Success', 'Account created! Please check your email to verify your account.');
+      showAlert({ title: 'Success', message: 'Account created! Please check your email to verify your account.' });
     }
   };
 
